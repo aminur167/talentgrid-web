@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Persons, ShieldCheck, Briefcase } from "@gravity-ui/icons";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 const ROLE_STYLES = {
   admin: "bg-amber-500/15 text-amber-500 border-amber-500/30",

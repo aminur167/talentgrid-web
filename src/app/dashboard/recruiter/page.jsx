@@ -14,7 +14,7 @@ import {
   Factory,
 } from "@gravity-ui/icons";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 export default function RecruiterDashboardHomePage() {
   const { data: session, isPending } = useSession();

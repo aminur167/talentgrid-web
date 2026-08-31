@@ -17,7 +17,7 @@ import {
 } from "@gravity-ui/icons";
 import { useSession } from "@/lib/auth-client";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 export default function JobApplyPage({ params: paramsPromise }) {
   const params = paramsPromise ? use(paramsPromise) : useParams();

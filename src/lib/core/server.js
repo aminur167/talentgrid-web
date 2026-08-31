@@ -1,4 +1,4 @@
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000';
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://talentgrid-api.vercel.app';
 
 /**
  * Core server fetch utility for GET requests

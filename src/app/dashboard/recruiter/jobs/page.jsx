@@ -22,7 +22,7 @@ import {
   CircleDollar
 } from "@gravity-ui/icons";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 const JOBS_PER_PAGE = 6;
 
 export default function RecruiterJobsPage() {

@@ -14,7 +14,7 @@ import {
 } from "@gravity-ui/icons";
 import { useSession } from "@/lib/auth-client";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 function AppLimitBar({ used, total }) {
   const pct = Math.min((used / total) * 100, 100);

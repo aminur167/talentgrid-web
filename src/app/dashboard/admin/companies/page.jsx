@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { CircleCheck, CircleExclamation, Clock, Factory } from "@gravity-ui/icons";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 export default function AdminCompaniesPage() {
   const [companies, setCompanies] = useState([]);

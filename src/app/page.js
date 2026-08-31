@@ -9,7 +9,7 @@ import {
 } from "@gravity-ui/icons";
 import { useSession } from "@/lib/auth-client";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
 
 const POPULAR_TAGS = ["React", "Next.js", "Node.js", "AI / ML", "Product Design", "DevOps", "Fullstack", "Remote"];
 

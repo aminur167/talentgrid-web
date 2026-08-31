@@ -19,8 +19,8 @@ export default function AdminDashboardLayout({ children }) {
 
   if (isPending) {
     return (
-      <div className="flex min-h-screen bg-[#09090b] items-center justify-center">
-        <div className="w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-screen bg-[#09090b] items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -28,10 +28,12 @@ export default function AdminDashboardLayout({ children }) {
   if (!session || session.user?.role !== "admin") return null;
 
   return (
-    <div className="flex min-h-screen bg-[#09090b] text-white">
+    <div className="flex h-screen w-full bg-[#09090b] text-white overflow-hidden">
       <AdminSidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-6 lg:p-8">{children}</div>
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        <main className="p-5 sm:p-8 lg:p-10 flex-1 max-w-7xl w-full mx-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

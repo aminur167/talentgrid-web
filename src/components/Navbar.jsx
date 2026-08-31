@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { ArrowRightFromSquare, LayoutSideContentLeft } from "@gravity-ui/icons";
+import { ArrowRightFromSquare, LayoutSideContentLeft, Moon, Sun } from "@gravity-ui/icons";
 import { authClient, useSession } from "@/lib/auth-client";
+import { useTheme } from "@/context/ThemeContext";
 
 function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -40,16 +41,15 @@ function Navbar() {
       href: "/jobs",
     },
     {
-      name: "Company",
+      name: "Companies",
       href: "/company",
     },
     {
-      name: "Pricing",
-      href: "/pricing",
+      name: "Pricing & Plans",
+      href: "/plans",
     },
   ];
 
-  // Resolve user dashboard route based on role
   const getDashboardRoute = () => {
     const role = session?.user?.role;
     if (role === "admin") return "/dashboard/admin";
@@ -60,23 +60,27 @@ function Navbar() {
   const dashboardRoute = getDashboardRoute();
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#141416]/90 backdrop-blur-xl transition-all">
+    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#0c0c0e]/90 backdrop-blur-xl transition-all">
       <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-12">
+        
         {/* ==================== LOGO ==================== */}
         <div className="flex items-center">
           <Link
             href="/"
-            className="flex items-center transition-opacity hover:opacity-90"
-            aria-label="Hireloop Home"
+            className="flex items-center gap-3 transition-opacity hover:opacity-90 group"
+            aria-label="TalentGrid Home"
           >
-            <Image
-              src="/images/logo.png"
-              alt="Hireloop"
-              width={140}
-              height={38}
-              className="h-8 w-auto object-contain"
-              priority
-            />
+            <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-[#6254f5] via-[#7b6eff] to-[#a198ff] flex items-center justify-center shadow-lg shadow-[#6254f5]/30">
+              <span className="text-white font-extrabold text-base tracking-wider">T</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-white font-extrabold text-lg tracking-tight group-hover:text-[#a198ff] transition-colors leading-none">
+                TalentGrid
+              </span>
+              <span className="text-[10px] font-mono font-semibold tracking-widest text-[#a198ff] mt-0.5">
+                PLATFORM
+              </span>
+            </div>
           </Link>
         </div>
 
@@ -103,16 +107,24 @@ function Navbar() {
         </ul>
 
         {/* ==================== DESKTOP ACTIONS ==================== */}
-        <div className="hidden items-center gap-4 md:flex">
+        <div className="hidden items-center gap-3 md:flex">
+          {/* Theme Switcher Toggle */}
+          <button
+            onClick={toggleTheme}
+            title="Toggle theme (Dark / Midnight / Light)"
+            className="p-2 rounded-xl border border-white/10 bg-white/5 text-neutral-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+          >
+            {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           {isPending ? (
             <div className="h-9 w-24 animate-pulse rounded-lg bg-white/5" />
           ) : session?.user ? (
             /* Logged In State */
             <div className="flex items-center gap-3">
-              {/* Direct Role-based Dashboard Button */}
               <Link
                 href={dashboardRoute}
-                className="flex items-center gap-2 rounded-xl bg-[#6254f5] hover:bg-[#7164ff] text-white px-4 py-2 text-xs font-bold shadow-lg shadow-[#6254f5]/25 transition-all"
+                className="flex items-center gap-2 rounded-xl bg-[#6254f5] hover:bg-[#7164ff] text-white px-4 py-2 text-xs font-bold shadow-lg shadow-[#6254f5]/25 transition-all cursor-pointer"
               >
                 <LayoutSideContentLeft className="h-3.5 w-3.5" />
                 Dashboard
@@ -150,7 +162,7 @@ function Navbar() {
             </div>
           ) : (
             /* Logged Out State */
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/auth/signin"
                 className="text-sm font-medium text-[#8277ff] transition-colors duration-200 hover:text-[#a198ff]"
@@ -160,49 +172,46 @@ function Navbar() {
 
               <Link
                 href="/auth/signup"
-                className="rounded-lg bg-[#6254f5] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#6254f5]/20 transition-all duration-200 hover:bg-[#7164ff] hover:shadow-[#6254f5]/30"
+                className="rounded-xl bg-[#6254f5] px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#6254f5]/20 transition-all duration-200 hover:bg-[#7164ff] hover:shadow-[#6254f5]/30 cursor-pointer"
               >
-                Get Started
+                Get Started →
               </Link>
             </div>
           )}
         </div>
 
         {/* ==================== MOBILE MENU BUTTON ==================== */}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-300 transition-colors duration-200 hover:bg-white/10 hover:text-white md:hidden"
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={isMenuOpen}
-        >
-          <span className="sr-only">
-            {isMenuOpen ? "Close menu" : "Open menu"}
-          </span>
-
-          {isMenuOpen ? (
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg border border-white/10 bg-white/5 text-neutral-300"
+          >
+            {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-300 transition-colors duration-200 hover:bg-white/10 hover:text-white"
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
             </svg>
-          ) : (
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
+          </button>
+        </div>
       </header>
 
       {/* ==================== MOBILE NAVIGATION ==================== */}
       {isMenuOpen && (
-        <div className="border-t border-white/10 bg-[#1f1f21] md:hidden">
+        <div className="border-t border-white/10 bg-[#121214] md:hidden">
           <div className="mx-auto max-w-7xl px-6 py-5">
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-1.5">
               {navLinks.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
                     onClick={() => setIsMenuOpen(false)}
-                    className="block rounded-lg px-3 py-3 text-sm font-medium text-gray-300 transition-colors duration-200 hover:bg-white/5 hover:text-white"
+                    className="block rounded-lg px-3 py-3 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
                   >
                     {link.name}
                   </Link>
@@ -234,7 +243,7 @@ function Navbar() {
                       type="button"
                       onClick={handleSignOut}
                       disabled={isSigningOut}
-                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 px-5 py-2.5 text-center text-sm font-semibold text-red-400 transition-all duration-200 hover:bg-red-500/20"
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 px-5 py-2.5 text-center text-sm font-semibold text-red-400"
                     >
                       <ArrowRightFromSquare className="h-4 w-4" />
                       {isSigningOut ? "Signing Out..." : "Sign Out"}
@@ -247,7 +256,7 @@ function Navbar() {
                     <Link
                       href="/auth/signin"
                       onClick={() => setIsMenuOpen(false)}
-                      className="block rounded-lg px-3 py-3 text-sm font-medium text-[#8277ff] transition-colors duration-200 hover:bg-white/5 hover:text-[#a198ff]"
+                      className="block rounded-lg px-3 py-3 text-sm font-medium text-[#8277ff] hover:bg-white/5 hover:text-[#a198ff]"
                     >
                       Sign In
                     </Link>

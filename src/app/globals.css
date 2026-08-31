@@ -1,2 +1,45 @@
 @import "tailwindcss";
-@import "@heroui/styles"; 
+@import "@heroui/styles";
+
+:root {
+  --bg-primary: #09090b;
+  --bg-card: #141416;
+  --bg-sidebar: #0d0d0f;
+  --accent-color: #6254f5;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+}
+
+[data-theme="midnight"] {
+  --bg-primary: #070913;
+  --bg-card: #0e1222;
+  --bg-sidebar: #090c1a;
+  --accent-color: #705df2;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

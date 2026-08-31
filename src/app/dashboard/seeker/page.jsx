@@ -67,7 +67,7 @@ function StatusBadge({ status }) {
 }
 
 export default function SeekerDashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [recentApps, setRecentApps] = useState([]);
@@ -76,8 +76,12 @@ export default function SeekerDashboardPage() {
   const user = session?.user;
 
   useEffect(() => {
-    if (!user?.email) return;
-
+    if (isPending) return;
+    if (!user?.email) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(user.email)}&_t=${Date.now()}`, {
       cache: "no-store",
     })
@@ -96,7 +100,7 @@ export default function SeekerDashboardPage() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user?.email]);
+  }, [user?.email, isPending]);
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">

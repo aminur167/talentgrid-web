@@ -23,13 +23,18 @@ function StatusBadge({ status }) {
 }
 
 export default function SeekerApplicationsPage() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = session?.user;
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (isPending) return;
+    if (!user?.email) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(user.email)}&_t=${Date.now()}`, {
       cache: "no-store",
     })
@@ -37,7 +42,7 @@ export default function SeekerApplicationsPage() {
       .then(data => setApplications(data?.applications || []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [user?.email]);
+  }, [user?.email, isPending]);
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">

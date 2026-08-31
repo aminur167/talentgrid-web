@@ -356,14 +356,22 @@ export default function JobApplyPage({ params: paramsPromise }) {
               </div>
 
               <div>
-                <label className={labelCls}>Email Address *</label>
+                <label className={labelCls}>
+                  Email Address *
+                  {session?.user?.email && (
+                    <span className="ml-2 text-[10px] text-emerald-500 font-semibold normal-case">
+                      (Linked to your logged-in account)
+                    </span>
+                  )}
+                </label>
                 <input
                   type="email"
                   required
-                  value={form.applicantEmail}
+                  readOnly={!!session?.user?.email}
+                  value={session?.user?.email || form.applicantEmail}
                   onChange={(e) => setForm({ ...form, applicantEmail: e.target.value })}
                   placeholder="your.email@example.com"
-                  className={inputCls}
+                  className={`${inputCls} ${session?.user?.email ? "opacity-80 cursor-not-allowed bg-[var(--bg-secondary)]" : ""}`}
                 />
               </div>
 

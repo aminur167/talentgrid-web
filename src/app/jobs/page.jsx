@@ -54,10 +54,12 @@ export default function PublicJobsPage() {
   const [applicantCount, setApplicantCount] = useState(0);
   const [hasReachedLimit, setHasReachedLimit] = useState(false);
 
-  // Fetch applicant application count if logged in
+  // Fetch applicant application count if logged in (live no-cache)
   useEffect(() => {
     if (!session?.user?.email) return;
-    fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(session.user.email)}`)
+    fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(session.user.email)}&_t=${Date.now()}`, {
+      cache: "no-store",
+    })
       .then((r) => r.json())
       .then((data) => {
         const count = data?.total || data?.applications?.length || 0;

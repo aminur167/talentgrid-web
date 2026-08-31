@@ -147,19 +147,21 @@ export default function JobApplyPage({ params: paramsPromise }) {
     setSubmitting(true);
     setError("");
 
+    const cleanEmail = (form.applicantEmail || session?.user?.email || "").trim().toLowerCase();
+
     const payload = {
       jobId: id,
       companyId: job?.companyId || "",
       companyName: job?.companyName || "TalentGrid Employer",
       jobTitle: job?.jobTitle || job?.title || "Position",
-      applicantName: form.applicantName,
-      applicantEmail: form.applicantEmail,
-      applicantPhone: form.applicantPhone,
-      applicantLocation: form.applicantLocation,
-      resumeUrl: form.resumeUrl,
-      expectedSalary: form.expectedSalary,
-      availability: form.availability,
-      coverLetter: form.coverLetter,
+      applicantName: (form.applicantName || "").trim(),
+      applicantEmail: cleanEmail,
+      applicantPhone: form.applicantPhone || "",
+      applicantLocation: form.applicantLocation || "",
+      resumeUrl: form.resumeUrl || "",
+      expectedSalary: form.expectedSalary || "",
+      availability: form.availability || "Immediate",
+      coverLetter: form.coverLetter || "",
       status: "pending",
       appliedAt: new Date().toISOString(),
     };
@@ -174,8 +176,10 @@ export default function JobApplyPage({ params: paramsPromise }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to submit job application.");
 
-      // Invalidate cache and update state
+      // Invalidate cache and update local state
       sessionStorage.removeItem("hl_browse_jobs_cache");
+      sessionStorage.removeItem("hireloop_jobs_cache");
+      setAppliedCount((prev) => prev + 1);
       setShowConfirmModal(false);
       setSuccess(true);
     } catch (err) {

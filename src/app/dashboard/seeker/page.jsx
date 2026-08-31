@@ -78,7 +78,9 @@ export default function SeekerDashboardPage() {
   useEffect(() => {
     if (!user?.email) return;
 
-    fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(user.email)}`)
+    fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(user.email)}&_t=${Date.now()}`, {
+      cache: "no-store",
+    })
       .then(r => r.json())
       .then(data => {
         const apps = data?.applications || [];

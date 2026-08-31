@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import {
   Magnifier,
   LocationArrow,
@@ -9,15 +10,19 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  Factory,
+  ShieldCheck,
+  Globe,
+  ArrowUpRight,
 } from "@gravity-ui/icons";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
-const CACHE_KEY = "hl_browse_companies";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app";
+const CACHE_KEY = "tg_browse_companies";
 const CACHE_TTL = 60_000;
 const ITEMS_PER_PAGE = 6;
 
-const INDUSTRIES = ["All", "Technology", "Fintech", "Healthcare", "E-commerce", "Design"];
-const SIZES = ["All", "1-10 employees", "11-50 employees", "51-200 employees", "500+ employees"];
+const INDUSTRIES = ["All", "Technology", "Fintech", "Healthcare", "E-commerce", "Design", "Artificial Intelligence"];
+const SIZES = ["All", "1-10 employees", "11-50 employees", "51-200 employees", "500+ employees", "10,000+ employees"];
 
 function readCache() {
   try {
@@ -26,11 +31,15 @@ function readCache() {
     const { ts, data } = JSON.parse(raw);
     if (Date.now() - ts > CACHE_TTL) return null;
     return data;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function writeCache(data) {
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  } catch {}
 }
 
 export default function BrowseCompaniesPage() {
@@ -44,7 +53,11 @@ export default function BrowseCompaniesPage() {
 
   useEffect(() => {
     const cached = readCache();
-    if (cached) { setAllCompanies(cached); setLoading(false); return; }
+    if (cached) {
+      setAllCompanies(cached);
+      setLoading(false);
+      return;
+    }
     if (fetchedRef.current) return;
     fetchedRef.current = true;
 
@@ -76,7 +89,7 @@ export default function BrowseCompaniesPage() {
     }
     if (selectedSize !== "All") {
       list = list.filter((c) =>
-        (c.employCount || c.size)?.toLowerCase().includes(selectedSize.toLowerCase())
+        (c.employCount || c.size || "").toLowerCase().includes(selectedSize.toLowerCase())
       );
     }
     return list;
@@ -108,107 +121,182 @@ export default function BrowseCompaniesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white">
-
+    <div
+      className="min-h-screen flex flex-col transition-colors duration-200"
+      style={{
+        backgroundColor: "var(--bg-primary)",
+        color: "var(--text-primary)",
+      }}
+    >
       {/* ─── Hero Section ─── */}
-      <section className="border-b border-white/[0.07] bg-[#09090b]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-14">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3">
-            Browse Companies
+      <section
+        className="relative py-16 px-6 lg:px-12 border-b overflow-hidden"
+        style={{
+          backgroundColor: "var(--bg-primary)",
+          borderColor: "var(--border-color)",
+        }}
+      >
+        {/* Subtle Ambient Glow */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[300px] rounded-full blur-[140px] pointer-events-none"
+          style={{ background: "radial-gradient(ellipse, rgba(98,84,245,0.08) 0%, transparent 70%)" }}
+        />
+
+        <div className="max-w-7xl mx-auto flex flex-col gap-4 relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border w-fit"
+            style={{
+              backgroundColor: "var(--accent-light)",
+              borderColor: "var(--accent-border)",
+              color: "var(--accent)",
+            }}
+          >
+            <Factory className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">Verified Employer Directory</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Browse Leading Tech Companies
           </h1>
-          <p className="text-neutral-400 text-base max-w-2xl leading-relaxed">
-            Discover the world's leading technology and creative organizations. Filter by industry, size, and values to find your next professional home.
+          <p className="text-sm sm:text-base max-w-2xl leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            Discover world-class engineering teams, startups, and high-growth organizations hiring top talent across the globe.
           </p>
         </div>
       </section>
 
-      {/* ─── Search + Filters Bar ─── */}
-      <section className="bg-[#09090b] border-b border-white/[0.07] py-4 sticky top-[80px] z-30 backdrop-blur-md bg-[#09090b]/90">
+      {/* ─── Search & Filters Bar ─── */}
+      <section
+        className="border-b py-4 sticky top-16 z-30 backdrop-blur-md transition-colors"
+        style={{
+          backgroundColor: "var(--bg-primary)",
+          borderColor: "var(--border-color)",
+        }}
+      >
         <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-          <div className="flex-1 flex items-center gap-3 bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5">
-            <Magnifier className="w-4 h-4 text-neutral-500 shrink-0" />
+          {/* Search Box */}
+          <div
+            className="flex-1 flex items-center gap-3 border rounded-xl px-4 py-2.5 shadow-xs transition-colors"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+            }}
+          >
+            <Magnifier className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
             <input
               type="text"
-              placeholder="Search by name, industry, or location..."
+              placeholder="Search by company name, industry, or location..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-transparent text-sm text-white placeholder:text-neutral-600 focus:outline-none"
+              className="w-full bg-transparent text-sm focus:outline-none"
+              style={{
+                color: "var(--text-primary)",
+              }}
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-neutral-500 hover:text-white text-xs shrink-0">✕</button>
+              <button
+                onClick={() => setSearch("")}
+                className="text-xs px-1.5 py-0.5 rounded cursor-pointer"
+                style={{ color: "var(--text-muted)" }}
+              >
+                ✕
+              </button>
             )}
           </div>
 
+          {/* Industry Filter */}
           <select
             value={selectedIndustry}
             onChange={(e) => setSelectedIndustry(e.target.value)}
-            className="bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-neutral-300 focus:outline-none cursor-pointer"
+            className="border rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer shadow-xs"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
           >
             {INDUSTRIES.map((i) => (
-              <option key={i} value={i}>{i === "All" ? "All Industries" : i}</option>
+              <option key={i} value={i} style={{ backgroundColor: "var(--bg-card)", color: "var(--text-primary)" }}>
+                {i === "All" ? "All Industries" : i}
+              </option>
             ))}
           </select>
 
+          {/* Size Filter */}
           <select
             value={selectedSize}
             onChange={(e) => setSelectedSize(e.target.value)}
-            className="bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-neutral-300 focus:outline-none cursor-pointer"
+            className="border rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer shadow-xs"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
           >
             {SIZES.map((s) => (
-              <option key={s} value={s}>{s === "All" ? "All Sizes" : s}</option>
+              <option key={s} value={s} style={{ backgroundColor: "var(--bg-card)", color: "var(--text-primary)" }}>
+                {s === "All" ? "All Sizes" : s}
+              </option>
             ))}
           </select>
 
+          {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            className="bg-[#6254f5] hover:bg-[#7164ff] active:scale-95 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-all shrink-0"
+            className="text-white font-bold text-sm px-6 py-2.5 rounded-xl shadow-lg shadow-[#6254f5]/20 hover:opacity-90 active:scale-95 transition-all shrink-0 cursor-pointer"
+            style={{ backgroundColor: "var(--accent)" }}
           >
             Refresh
           </button>
         </div>
       </section>
 
-      {/* ─── Companies Grid + Pagination ─── */}
-      <section className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col gap-10">
+      {/* ─── Main Content Grid ─── */}
+      <section className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex-1 flex flex-col gap-8 w-full">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-[#141416] border border-white/[0.07] rounded-2xl p-5 animate-pulse">
-                <div className="flex justify-between mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-white/5" />
-                  <div className="w-16 h-4 rounded-full bg-white/5" />
+              <div
+                key={i}
+                className="border rounded-2xl p-6 animate-pulse flex flex-col gap-4"
+                style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}
+              >
+                <div className="flex justify-between items-center">
+                  <div className="w-12 h-12 rounded-xl" style={{ backgroundColor: "var(--border-color)" }} />
+                  <div className="w-20 h-5 rounded-full" style={{ backgroundColor: "var(--border-color)" }} />
                 </div>
-                <div className="w-2/3 h-4 bg-white/5 rounded mb-2" />
-                <div className="w-full h-3 bg-white/5 rounded mb-1" />
-                <div className="w-4/5 h-3 bg-white/5 rounded mb-5" />
-                <div className="flex gap-2 mb-5">
-                  <div className="w-16 h-5 rounded-full bg-white/5" />
-                  <div className="w-20 h-5 rounded-full bg-white/5" />
-                </div>
-                <div className="border-t border-white/[0.07] pt-4 flex justify-between">
-                  <div className="w-24 h-3 bg-white/5 rounded" />
-                  <div className="w-20 h-3 bg-white/5 rounded" />
+                <div className="w-2/3 h-5 rounded" style={{ backgroundColor: "var(--border-color)" }} />
+                <div className="w-full h-10 rounded" style={{ backgroundColor: "var(--border-color)" }} />
+                <div className="flex gap-2">
+                  <div className="w-16 h-6 rounded-full" style={{ backgroundColor: "var(--border-color)" }} />
+                  <div className="w-20 h-6 rounded-full" style={{ backgroundColor: "var(--border-color)" }} />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredCompanies.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-neutral-500">
-              <Briefcase className="w-7 h-7" />
+          <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
+            <div
+              className="w-16 h-16 rounded-2xl border flex items-center justify-center shadow-sm"
+              style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-muted)" }}
+            >
+              <Briefcase className="w-8 h-8" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white mb-1">No Companies Found</h3>
-              <p className="text-neutral-500 text-sm max-w-sm">
+              <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>No Companies Found</h3>
+              <p className="text-sm max-w-sm mt-1" style={{ color: "var(--text-secondary)" }}>
                 {search || selectedIndustry !== "All" || selectedSize !== "All"
-                  ? "Try adjusting your search or filters."
-                  : "No companies registered yet."}
+                  ? "Try broadening your search keywords or resetting filters."
+                  : "No companies are currently registered."}
               </p>
             </div>
             {(search || selectedIndustry !== "All" || selectedSize !== "All") && (
               <button
-                onClick={() => { setSearch(""); setSelectedIndustry("All"); setSelectedSize("All"); }}
-                className="text-sm text-[#a198ff] hover:underline"
+                onClick={() => {
+                  setSearch("");
+                  setSelectedIndustry("All");
+                  setSelectedSize("All");
+                }}
+                className="text-xs font-bold underline cursor-pointer"
+                style={{ color: "var(--accent)" }}
               >
                 Clear all filters
               </button>
@@ -216,66 +304,61 @@ export default function BrowseCompaniesPage() {
           </div>
         ) : (
           <>
+            {/* Header count */}
             <div className="flex items-center justify-between">
-              <p className="text-neutral-500 text-sm">
-                Showing <span className="text-white font-semibold">{paginatedCompanies.length}</span> of{" "}
-                <span className="text-white font-semibold">{filteredCompanies.length}</span> companies
+              <p className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                Showing <strong style={{ color: "var(--text-primary)" }}>{paginatedCompanies.length}</strong> of{" "}
+                <strong style={{ color: "var(--text-primary)" }}>{filteredCompanies.length}</strong> registered employers
               </p>
               {totalPages > 1 && (
-                <p className="text-neutral-500 text-xs">
-                  Page <span className="text-neutral-300 font-semibold">{currentPage}</span> of {totalPages}
+                <p className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
+                  Page {currentPage} of {totalPages}
                 </p>
               )}
             </div>
 
-            {/* Cards Grid */}
+            {/* Companies Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {paginatedCompanies.map((company) => (
                 <CompanyCard key={company._id || company.name} company={company} />
               ))}
             </div>
 
-            {/* Pagination Bar */}
+            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 pt-6">
                 <button
                   disabled={currentPage === 1}
                   onClick={() => {
                     setCurrentPage((p) => Math.max(1, p - 1));
-                    window.scrollTo({ top: 280, behavior: "smooth" });
+                    window.scrollTo({ top: 250, behavior: "smooth" });
                   }}
-                  className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:hover:border-white/10 disabled:hover:text-neutral-400 transition-all cursor-pointer"
+                  className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                  const isActive = pageNum === currentPage;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => {
-                        setCurrentPage(pageNum);
-                        window.scrollTo({ top: 280, behavior: "smooth" });
-                      }}
-                      className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-white text-black border border-white shadow-lg shadow-white/10 scale-105"
-                          : "bg-[#141416] border border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
+                <span className="text-xs font-mono font-bold px-4" style={{ color: "var(--text-secondary)" }}>
+                  {currentPage} / {totalPages}
+                </span>
 
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => {
                     setCurrentPage((p) => Math.min(totalPages, p + 1));
-                    window.scrollTo({ top: 280, behavior: "smooth" });
+                    window.scrollTo({ top: 250, behavior: "smooth" });
                   }}
-                  className="w-9 h-9 rounded-xl bg-[#141416] border border-white/10 flex items-center justify-center text-neutral-400 hover:text-white hover:border-white/20 disabled:opacity-30 disabled:hover:border-white/10 disabled:hover:text-neutral-400 transition-all cursor-pointer"
+                  className="w-10 h-10 rounded-xl border flex items-center justify-center transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--border-color)",
+                    color: "var(--text-primary)",
+                  }}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -292,105 +375,140 @@ function CompanyCard({ company }) {
   const [imgError, setImgError] = useState(false);
 
   const initials = company.name
-    ? company.name.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    ? company.name
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
     : "CO";
 
   const hasLogo = company.logo && company.logo.startsWith("http") && !imgError;
 
   return (
-    <div className="group flex flex-col bg-[#141416] border border-white/[0.08] hover:border-white/[0.18] rounded-2xl p-5 transition-all duration-150 cursor-pointer hover:-translate-y-px">
-
-      {/* Row 1: Logo + Verified Badge */}
+    <div
+      className="group flex flex-col border rounded-2xl p-6 transition-all duration-200 shadow-xs hover:shadow-lg hover:-translate-y-1"
+      style={{
+        backgroundColor: "var(--bg-card)",
+        borderColor: "var(--border-color)",
+      }}
+    >
+      {/* Row 1: Logo + Verification Status */}
       <div className="flex items-start justify-between mb-4">
         {hasLogo ? (
           <img
             src={company.logo}
             alt={company.name}
             onError={() => setImgError(true)}
-            className="w-11 h-11 rounded-xl object-cover bg-[#1e1e22] border border-white/[0.08] shrink-0"
+            className="w-12 h-12 rounded-xl object-cover border shrink-0"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+            }}
           />
         ) : (
-          <div className="w-11 h-11 rounded-xl bg-[#1e1e22] border border-white/[0.08] flex items-center justify-center text-[13px] font-bold text-neutral-300 shrink-0">
+          <div
+            className="w-12 h-12 rounded-xl border flex items-center justify-center text-sm font-extrabold shrink-0 shadow-xs"
+            style={{
+              backgroundColor: "var(--accent-light)",
+              borderColor: "var(--accent-border)",
+              color: "var(--accent)",
+            }}
+          >
             {initials}
           </div>
         )}
 
         {company.isApproved !== false ? (
-          <span className="flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> VERIFIED
+          <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Verified
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-amber-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" /> PENDING
+          <span className="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Pending
           </span>
         )}
       </div>
 
       {/* Row 2: Company Name */}
-      <h3 className="text-[15px] font-bold text-white mb-1.5 line-clamp-1 group-hover:text-[#c4bfff] transition-colors leading-snug">
+      <h3
+        className="text-base font-extrabold mb-1.5 line-clamp-1 group-hover:text-[#6254f5] transition-colors"
+        style={{ color: "var(--text-primary)" }}
+      >
         {company.name}
       </h3>
 
       {/* Row 3: Description */}
-      <p className="text-[12.5px] text-neutral-500 leading-relaxed line-clamp-2 mb-4">
+      <p
+        className="text-xs leading-relaxed line-clamp-2 mb-4"
+        style={{ color: "var(--text-secondary)" }}
+      >
         {company.description ||
-          `A ${company.industry || "technology"} company${
-            company.location ? ` based in ${company.location}` : ""
+          `A forward-thinking ${company.industry || "technology"} organization${
+            company.location ? ` headquartered in ${company.location}` : ""
           }.`}
       </p>
 
-      {/* Row 4: Tags */}
-      <div className="flex flex-wrap gap-1.5 mb-5">
+      {/* Row 4: Industry & Location Badges */}
+      <div className="flex flex-wrap gap-1.5 mb-5 mt-auto">
         {company.industry && (
-          <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-white/[0.04] border border-white/[0.07] rounded-full px-2.5 py-[3px]">
-            <Briefcase className="w-[11px] h-[11px] text-neutral-600" />
+          <span
+            className="flex items-center gap-1 text-[11px] font-medium border rounded-full px-2.5 py-0.5"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <Briefcase className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
             {company.industry}
           </span>
         )}
         {company.location && (
-          <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-white/[0.04] border border-white/[0.07] rounded-full px-2.5 py-[3px]">
-            <LocationArrow className="w-[11px] h-[11px] text-neutral-600" />
+          <span
+            className="flex items-center gap-1 text-[11px] font-medium border rounded-full px-2.5 py-0.5"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <LocationArrow className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
             {company.location}
           </span>
         )}
         {(company.employCount || company.size) && (
-          <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-white/[0.04] border border-white/[0.07] rounded-full px-2.5 py-[3px]">
-            <Person className="w-[11px] h-[11px] text-neutral-600" />
+          <span
+            className="flex items-center gap-1 text-[11px] font-medium border rounded-full px-2.5 py-0.5"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <Person className="w-3 h-3" style={{ color: "var(--text-muted)" }} />
             {company.employCount || company.size}
           </span>
         )}
       </div>
 
-      {/* Row 5: Footer */}
-      <div className="flex items-center justify-between border-t border-white/[0.07] pt-4 mt-auto">
-        <span className="text-[12px] text-neutral-500">
-          <span className="text-neutral-200 font-semibold">
-            {company.activeJobsCount || 0}
-          </span>{" "}
-          Active Jobs
+      {/* Row 5: Action Footer */}
+      <div
+        className="flex items-center justify-between border-t pt-4"
+        style={{ borderColor: "var(--border-color)" }}
+      >
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          <strong style={{ color: "var(--text-primary)" }}>{company.activeJobsCount || "2+"}</strong> open roles
         </span>
 
-        {(company.websiteUrl || company.website) ? (
-          <a
-            href={
-              (company.websiteUrl || company.website).startsWith("http")
-                ? company.websiteUrl || company.website
-                : `https://${company.websiteUrl || company.website}`
-            }
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 text-[12px] text-neutral-400 hover:text-white transition-colors font-medium group/link"
-          >
-            View Openings
-            <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 transition-transform" />
-          </a>
-        ) : (
-          <span className="flex items-center gap-1 text-[12px] text-neutral-600">
-            View Openings
-            <ArrowRight className="w-3.5 h-3.5" />
-          </span>
-        )}
+        <Link
+          href={`/jobs?search=${encodeURIComponent(company.name)}`}
+          className="inline-flex items-center gap-1 text-xs font-bold transition-all hover:gap-1.5"
+          style={{ color: "var(--accent)" }}
+        >
+          View Roles <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
     </div>
   );

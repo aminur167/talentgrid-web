@@ -15,6 +15,7 @@ import {
   Sun,
   Pencil,
   Bookmark,
+  Factory,
 } from "@gravity-ui/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ const navItems = [
   { icon: Person, href: "/dashboard/seeker/settings", label: "My Profile" },
   { icon: Bookmark, href: "/dashboard/seeker/saved-jobs", label: "Saved Jobs" },
   { icon: Magnifier, href: "/jobs", label: "Browse Roles" },
+  { icon: Factory, href: "/company", label: "Companies" },
   { icon: FileText, href: "/dashboard/seeker/applications", label: "My Applications" },
   { icon: CrownDiamond, href: "/plans", label: "Subscription Plans" },
 ];

@@ -14,9 +14,8 @@ import {
   ArrowRight,
   Person,
   Check,
-  Globe as GlobeIcon
+  CrownDiamond,
 } from "@gravity-ui/icons";
-import { Button, Spinner } from "@heroui/react";
 import { useSession } from "@/lib/auth-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
@@ -49,6 +48,7 @@ export default function JobDetailsPage({ params: paramsPromise }) {
   const [loading, setLoading] = useState(() => !getInitialJob());
   const [error, setError] = useState("");
   const [imgError, setImgError] = useState(false);
+  const [checkingQuota, setCheckingQuota] = useState(false);
 
   const handleApplyClick = async () => {
     if (!session?.user) {
@@ -57,6 +57,7 @@ export default function JobDetailsPage({ params: paramsPromise }) {
       return;
     }
 
+    setCheckingQuota(true);
     // Check plan upgrade or free applications count limit (max 3)
     const activePlan = typeof window !== "undefined" ? localStorage.getItem("hl_user_plan") : null;
     if (activePlan === "growth" || activePlan === "premium") {
@@ -74,6 +75,8 @@ export default function JobDetailsPage({ params: paramsPromise }) {
       }
     } catch (e) {
       console.error("Check applications count error:", e);
+    } finally {
+      setCheckingQuota(false);
     }
 
     router.push(`/jobs/${id}/apply`);
@@ -101,268 +104,206 @@ export default function JobDetailsPage({ params: paramsPromise }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center gap-3">
-        <Spinner size="lg" color="secondary" />
-        <p className="text-sm text-neutral-400 font-medium">Loading job details...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)" }} />
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Loading position details...</p>
       </div>
     );
   }
 
   if (error || !job) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center p-6 text-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center gap-4" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
           <Briefcase className="w-8 h-8" />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-white mb-1">Job Posting Not Found</h2>
-          <p className="text-sm text-neutral-400 max-w-md">{error || "This job listing does not exist."}</p>
+          <h2 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>Position Not Found</h2>
+          <p className="text-sm max-w-md" style={{ color: "var(--text-secondary)" }}>{error || "This job listing does not exist."}</p>
         </div>
         <Link href="/jobs">
-          <Button className="bg-[#6254f5] text-white font-semibold rounded-xl px-5 py-2.5 text-xs">
-            <ArrowLeft className="w-4 h-4" /> Back to All Jobs
-          </Button>
+          <button className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-md cursor-pointer" style={{ backgroundColor: "var(--accent)" }}>
+            Back to Browse Jobs
+          </button>
         </Link>
       </div>
     );
   }
 
   const title = job.jobTitle || job.title || "Software Engineer";
-  const companyName = job.companyName || "HireLoop Partner";
-  const category = job.jobCategory || job.category || "Engineering";
-  const jobType = job.jobType || "Full-Time";
-  const hasLogo = job.companyLogo && job.companyLogo.startsWith("http") && !imgError;
-
+  const companyName = job.companyName || "Verified Partner";
+  const salary = job.minSalary && job.maxSalary
+    ? `$${(job.minSalary / 1000).toFixed(0)}k – $${(job.maxSalary / 1000).toFixed(0)}k / year`
+    : job.salary || "Competitive Compensation";
   const initials = companyName
     ? companyName.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase()
     : "CO";
-
-  const currencySymbol = job.currency === "BDT" ? "৳" : job.currency === "EUR" ? "€" : job.currency === "GBP" ? "£" : "$";
-  const formattedSalary =
-    job.minSalary || job.maxSalary
-      ? `${currencySymbol}${job.minSalary ? job.minSalary.toLocaleString() : "0"} – ${currencySymbol}${
-          job.maxSalary ? job.maxSalary.toLocaleString() : "0"
-        }`
-      : "Competitive Salary";
+  const hasLogo = job.companyLogo && job.companyLogo.startsWith("http") && !imgError;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pb-20">
-      
-      {/* ─── Top Header Navigation ─── */}
-      <div className="border-b border-white/[0.08] bg-[#141416]/50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div className="min-h-screen pb-20 relative" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+
+      {/* ─── Top Header Breadcrumb ─── */}
+      <div className="border-b py-4 px-6 lg:px-12" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
           <Link
             href="/jobs"
-            className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-xs font-semibold hover:underline transition-colors"
+            style={{ color: "var(--text-secondary)" }}
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Browse Jobs
+            Back to Jobs
           </Link>
-          <span className="text-xs text-neutral-500 font-medium">Job Ref ID: #{id?.slice(-6)}</span>
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Job ID: #{id?.slice(-6)}</span>
         </div>
       </div>
 
-      {/* ─── Hero Banner Card ─── */}
-      <section className="max-w-6xl mx-auto px-6 pt-8 pb-4">
-        <div className="bg-[#141416] border border-white/[0.08] rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-2xl relative overflow-hidden">
-          
-          {/* Ambient Glow */}
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#6254f5]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="max-w-5xl mx-auto px-6 pt-8 flex flex-col gap-8">
 
-          <div className="flex items-start sm:items-center gap-5">
+        {/* ─── Main Job Header Card ─── */}
+        <div className="border rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
+          <div className="flex items-start gap-4 sm:gap-5">
             {hasLogo ? (
               <img
                 src={job.companyLogo}
                 alt={companyName}
                 onError={() => setImgError(true)}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover bg-[#1e1e22] border border-white/10 shrink-0 shadow-lg"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border shrink-0 shadow-md"
+                style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
               />
             ) : (
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#1e1e22] border border-white/10 flex items-center justify-center text-xl font-bold text-neutral-200 shrink-0 shadow-lg">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border flex items-center justify-center text-lg sm:text-xl font-bold shrink-0 shadow-md" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--accent)" }}>
                 {initials}
               </div>
             )}
-
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold text-[#a198ff] uppercase tracking-wider bg-[#6254f5]/15 border border-[#6254f5]/30 px-2.5 py-0.5 rounded-full">
-                  {category}
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+                  {companyName}
                 </span>
-                <span className="flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Verified Employer
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
+                  <ShieldCheck className="w-3 h-3" /> Verified Role
                 </span>
               </div>
-
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight">
-                {title}
-              </h1>
-
-              <p className="text-sm font-semibold text-neutral-300 flex items-center gap-2">
-                {companyName}
-                {job.location && (
-                  <>
-                    <span className="text-neutral-600">•</span>
-                    <span className="text-neutral-400 font-normal flex items-center gap-1">
-                      <LocationArrow className="w-3.5 h-3.5 text-neutral-500" /> {job.location}
-                    </span>
-                  </>
-                )}
+              <h1 className="text-2xl sm:text-3xl font-extrabold" style={{ color: "var(--text-primary)" }}>{title}</h1>
+              <p className="text-xs flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                <span>{job.location || (job.isRemote ? "Remote" : "Global")}</span>
+                <span>•</span>
+                <span className="capitalize">{job.jobType || "Full-Time"}</span>
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0 border-t md:border-t-0 border-white/10 pt-4 md:pt-0">
-            <Button
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
+            <button
               onClick={handleApplyClick}
-              className="bg-[#6254f5] hover:bg-[#7164ff] active:scale-95 text-white font-bold text-sm px-7 py-3 rounded-2xl shadow-xl shadow-[#6254f5]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              disabled={checkingQuota}
+              className="flex items-center justify-center gap-2 text-white font-bold px-8 py-3.5 rounded-2xl text-sm shadow-lg transition-all cursor-pointer disabled:opacity-60"
+              style={{ backgroundColor: "var(--accent)" }}
             >
-              Apply for this Position
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Content Grid ─── */}
-      <section className="max-w-6xl mx-auto px-6 pt-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Job Details & Responsibilities */}
-        <div className="lg:col-span-2 flex flex-col gap-8">
-
-          {/* Salary & Key Stats Box */}
-          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Offered Salary</span>
-              <span className="text-sm font-bold text-emerald-400 flex items-center gap-1">
-                <CircleDollar className="w-4 h-4 text-emerald-400" />
-                {formattedSalary}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Job Type</span>
-              <span className="text-sm font-semibold text-white capitalize flex items-center gap-1">
-                <Briefcase className="w-4 h-4 text-neutral-400" />
-                {jobType}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Workplace</span>
-              <span className="text-sm font-semibold text-white flex items-center gap-1">
-                {job.isRemote ? (
-                  <span className="text-[#a198ff] flex items-center gap-1"><GlobeIcon className="w-4 h-4" /> 100% Remote</span>
-                ) : (
-                  job.location || "On-site"
-                )}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Deadline</span>
-              <span className="text-sm font-semibold text-amber-300 flex items-center gap-1">
-                <Clock className="w-4 h-4 text-amber-400" />
-                {job.deadline || "Open"}
-              </span>
-            </div>
-          </div>
-
-          {/* Key Responsibilities */}
-          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/[0.08] pb-3">
-              <Briefcase className="w-5 h-5 text-[#6254f5]" />
-              Key Responsibilities
-            </h2>
-            <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line">
-              {job.responsibilities || "No specific responsibilities listed for this role."}
-            </div>
-          </div>
-
-          {/* Requirements & Qualifications */}
-          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/[0.08] pb-3">
-              <Check className="w-5 h-5 text-emerald-400" />
-              Requirements & Qualifications
-            </h2>
-            <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line">
-              {job.requirements || "No specific requirements listed for this role."}
-            </div>
-          </div>
-
-          {/* Benefits & Perks */}
-          {job.benefits && (
-            <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 sm:p-8 flex flex-col gap-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2 border-b border-white/[0.08] pb-3">
-                <CircleDollar className="w-5 h-5 text-amber-400" />
-                Perks & Benefits
-              </h2>
-              <div className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line">
-                {job.benefits}
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Right Sidebar: Summary & Quick Apply */}
-        <div className="flex flex-col gap-6">
-
-          {/* Apply Box */}
-          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 flex flex-col gap-4 sticky top-24 shadow-xl">
-            <h3 className="text-base font-bold text-white">Interested in this role?</h3>
-            <p className="text-xs text-neutral-400 leading-relaxed">
-              Submit your profile, resume, and cover letter directly to the hiring manager at <span className="text-white font-semibold">{companyName}</span>.
-            </p>
-
-            <Button
-              onClick={handleApplyClick}
-              className="bg-[#6254f5] hover:bg-[#7164ff] active:scale-95 text-white font-bold text-sm py-3 rounded-xl shadow-lg shadow-[#6254f5]/25 flex items-center justify-center gap-2 transition-all cursor-pointer w-full"
-            >
-              Apply Now
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-
-            <div className="border-t border-white/[0.08] pt-4 flex items-center justify-between text-xs text-neutral-500">
-              <span className="flex items-center gap-1">
-                <Person className="w-3.5 h-3.5 text-neutral-400" />
-                <span className="text-white font-bold">{job.applications || 0}</span> candidates applied
-              </span>
-              <span className="text-emerald-400 font-medium">Actively Hiring</span>
-            </div>
-          </div>
-
-          {/* Company Details */}
-          <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 flex flex-col gap-4">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/[0.08] pb-3">
-              About Employer
-            </h3>
-            <div className="flex items-center gap-3">
-              {hasLogo ? (
-                <img
-                  src={job.companyLogo}
-                  alt={companyName}
-                  onError={() => setImgError(true)}
-                  className="w-10 h-10 rounded-xl object-cover bg-[#1e1e22] border border-white/10"
-                />
+              {checkingQuota ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Checking Quota…
+                </>
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-[#1e1e22] border border-white/10 flex items-center justify-center text-xs font-bold text-neutral-300">
-                  {initials}
-                </div>
+                <>
+                  Apply for this Role <ArrowRight className="w-4 h-4" />
+                </>
               )}
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-white">{companyName}</span>
-                <span className="text-xs text-neutral-400">{category}</span>
-              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* ─── Highlights Row ─── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Compensation Band", value: salary, icon: CircleDollar, color: "text-emerald-500" },
+            { label: "Workplace Type", value: job.isRemote ? "100% Remote" : job.location || "On-site", icon: Globe, color: "text-[#6254f5]" },
+            { label: "Employment Type", value: job.jobType || "Full-Time", icon: Briefcase, color: "text-amber-500" },
+            { label: "Application Deadline", value: job.deadline ? new Date(job.deadline).toLocaleDateString() : "Open until filled", icon: Clock, color: "text-pink-500" },
+          ].map((stat) => (
+            <div key={stat.label} className="border rounded-2xl p-4 flex flex-col gap-1.5" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
+              <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              <p className="text-[11px] font-medium" style={{ color: "var(--text-muted)" }}>{stat.label}</p>
+              <p className="text-sm font-bold truncate capitalize" style={{ color: "var(--text-primary)" }}>{stat.value}</p>
             </div>
-            {job.companyLocation && (
-              <div className="flex items-center justify-between text-xs py-1 border-t border-white/5 pt-3">
-                <span className="text-neutral-400">Headquarters</span>
-                <span className="text-white font-medium">{job.companyLocation}</span>
+          ))}
+        </div>
+
+        {/* ─── Details Section ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 flex flex-col gap-8">
+
+            {/* Overview */}
+            {job.responsibilities && (
+              <div className="border rounded-3xl p-6 sm:p-8 flex flex-col gap-4" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Role Overview &amp; Responsibilities</h2>
+                <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
+                  {job.responsibilities}
+                </p>
               </div>
             )}
+
+            {/* Requirements */}
+            {job.requirements && (
+              <div className="border rounded-3xl p-6 sm:p-8 flex flex-col gap-4" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Requirements &amp; Qualifications</h2>
+                <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
+                  {job.requirements}
+                </p>
+              </div>
+            )}
+
+            {/* Benefits */}
+            {job.benefits && (
+              <div className="border rounded-3xl p-6 sm:p-8 flex flex-col gap-4" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+                <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Benefits &amp; Perks</h2>
+                <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
+                  {job.benefits}
+                </p>
+              </div>
+            )}
+
           </div>
 
+          {/* Sidebar Info */}
+          <div className="flex flex-col gap-6">
+            <div className="border rounded-3xl p-6 flex flex-col gap-5" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+              <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>About the Hiring Company</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl border flex items-center justify-center font-bold text-sm" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--accent)" }}>
+                  {initials}
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{companyName}</p>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{job.companyIndustry || "Technology"}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 flex flex-col gap-3 text-xs" style={{ borderColor: "var(--border-color)" }}>
+                <div className="flex justify-between">
+                  <span style={{ color: "var(--text-muted)" }}>Company Location</span>
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{job.companyLocation || job.location || "Global"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span style={{ color: "var(--text-muted)" }}>Open Technical Roles</span>
+                  <span className="font-bold" style={{ color: "var(--accent)" }}>1 Active</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleApplyClick}
+                className="w-full text-white font-bold py-3 rounded-xl text-xs shadow-md transition-all cursor-pointer mt-2"
+                style={{ backgroundColor: "var(--accent)" }}
+              >
+                Apply for {title} →
+              </button>
+            </div>
+          </div>
         </div>
 
-      </section>
+      </div>
     </div>
   );
 }

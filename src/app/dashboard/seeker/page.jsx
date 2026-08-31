@@ -9,6 +9,8 @@ import {
   CircleExclamation,
   ArrowRight,
   CrownDiamond,
+  Person,
+  Pencil,
 } from "@gravity-ui/icons";
 import { useSession } from "@/lib/auth-client";
 
@@ -25,20 +27,20 @@ function AppLimitBar({ used, total }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-neutral-400">Free applications used</span>
+        <span style={{ color: "var(--text-secondary)" }}>Free applications used</span>
         <span className={`font-bold ${
-          used >= total ? "text-red-400" : used >= 2 ? "text-amber-400" : "text-emerald-400"
+          used >= total ? "text-red-500" : used >= 2 ? "text-amber-500" : "text-emerald-500"
         }`}>
           {used} / {total}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border-color)" }}>
         <div
           className={`h-full rounded-full transition-all duration-500 ${color}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-[11px] text-neutral-500">
+      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
         {used === 0 && "You have 3 free applications. Start applying!"}
         {used === 1 && "Good start! 2 free applications remaining."}
         {used === 2 && "⚠️ Only 1 free application left. Use it wisely!"}
@@ -50,11 +52,11 @@ function AppLimitBar({ used, total }) {
 
 function StatusBadge({ status }) {
   const map = {
-    pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    shortlisted: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    interviewing: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-    rejected: "bg-red-500/15 text-red-400 border-red-500/30",
-    hired: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    pending: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+    shortlisted: "bg-blue-500/15 text-blue-500 border-blue-500/30",
+    interviewing: "bg-purple-500/15 text-purple-500 border-purple-500/30",
+    rejected: "bg-red-500/15 text-red-500 border-red-500/30",
+    hired: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30",
   };
   const cls = map[status?.toLowerCase()] || map.pending;
   return (
@@ -76,13 +78,11 @@ export default function SeekerDashboardPage() {
   useEffect(() => {
     if (!user?.email) return;
 
-    // Fetch applications for display
     fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(user.email)}`)
       .then(r => r.json())
       .then(data => {
         const apps = data?.applications || [];
         setRecentApps(apps.slice(0, 5));
-        // Build stats from apps
         setStats({
           totalApplied: apps.length,
           pendingCount: apps.filter(a => a.status === 'pending').length,
@@ -98,26 +98,38 @@ export default function SeekerDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-5xl">
-      {/* Welcome */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-white">Welcome back, {user?.name?.split(' ')[0] || 'there'}! 👋</h1>
-        <p className="text-sm text-neutral-400 mt-1">Here's an overview of your job search progress.</p>
+      {/* Welcome & Profile Quick Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>
+            Welcome back, {user?.name?.split(' ')[0] || 'there'}! 👋
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            Here's an overview of your job search progress.
+          </p>
+        </div>
+        <Link href="/dashboard/seeker/settings">
+          <button className="flex items-center gap-2 border px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
+            <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+            Edit My Profile
+          </button>
+        </Link>
       </div>
 
       {/* Application Limit Card */}
-      <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-5">
+      <div className="border rounded-2xl p-5" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">Free Application Quota</h2>
+          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Free Application Quota</h2>
           {stats?.totalApplied >= 3 && (
             <Link href="/plans">
-              <button className="flex items-center gap-1.5 text-xs font-bold text-[#a198ff] bg-[#6254f5]/15 border border-[#6254f5]/30 px-3 py-1.5 rounded-lg hover:bg-[#6254f5]/25 transition-all cursor-pointer">
+              <button className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer" style={{ backgroundColor: "var(--accent-light)", borderColor: "var(--accent-border)", color: "var(--accent)" }}>
                 <CrownDiamond className="w-3.5 h-3.5" /> Upgrade Plan
               </button>
             </Link>
           )}
         </div>
         {loading ? (
-          <div className="h-8 bg-white/5 animate-pulse rounded-lg" />
+          <div className="h-8 rounded-lg animate-pulse" style={{ backgroundColor: "var(--bg-secondary)" }} />
         ) : (
           <AppLimitBar used={stats?.totalApplied || 0} total={3} />
         )}
@@ -126,51 +138,51 @@ export default function SeekerDashboardPage() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Applied", value: stats?.totalApplied ?? 0, icon: Briefcase, color: "text-[#a198ff]" },
-          { label: "Pending", value: stats?.pendingCount ?? 0, icon: Clock, color: "text-amber-400" },
-          { label: "Shortlisted", value: stats?.shortlistedCount ?? 0, icon: CircleCheck, color: "text-emerald-400" },
-          { label: "Rejected", value: stats?.rejectedCount ?? 0, icon: CircleExclamation, color: "text-red-400" },
+          { label: "Total Applied", value: stats?.totalApplied ?? 0, icon: Briefcase, color: "text-[#6254f5]" },
+          { label: "Pending", value: stats?.pendingCount ?? 0, icon: Clock, color: "text-amber-500" },
+          { label: "Shortlisted", value: stats?.shortlistedCount ?? 0, icon: CircleCheck, color: "text-emerald-500" },
+          { label: "Rejected", value: stats?.rejectedCount ?? 0, icon: CircleExclamation, color: "text-red-500" },
         ].map((stat) => (
-          <div key={stat.label} className="bg-[#141416] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-2">
+          <div key={stat.label} className="border rounded-2xl p-4 flex flex-col gap-2" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
             <stat.icon className={`w-5 h-5 ${stat.color}`} />
             <div>
-              <p className="text-2xl font-extrabold text-white">{loading ? '—' : stat.value}</p>
-              <p className="text-xs text-neutral-500">{stat.label}</p>
+              <p className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>{loading ? '—' : stat.value}</p>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>{stat.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Recent Applications */}
-      <div className="bg-[#141416] border border-white/[0.08] rounded-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.07]">
-          <h2 className="text-sm font-bold text-white">Recent Applications</h2>
-          <Link href="/dashboard/seeker/applications" className="text-xs text-[#a198ff] hover:text-white flex items-center gap-1">
+      <div className="border rounded-2xl" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border-color)" }}>
+          <h2 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Recent Applications</h2>
+          <Link href="/dashboard/seeker/applications" className="text-xs font-semibold flex items-center gap-1 hover:underline" style={{ color: "var(--accent)" }}>
             View All <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
         {loading ? (
           <div className="p-5 space-y-3">
-            {[1,2,3].map(i => <div key={i} className="h-12 bg-white/5 animate-pulse rounded-xl" />)}
+            {[1,2,3].map(i => <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: "var(--bg-secondary)" }} />)}
           </div>
         ) : recentApps.length === 0 ? (
           <div className="p-8 text-center">
-            <Briefcase className="w-8 h-8 text-neutral-600 mx-auto mb-2" />
-            <p className="text-sm text-neutral-500">No applications yet.</p>
+            <Briefcase className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--text-muted)" }} />
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>No applications yet.</p>
             <Link href="/jobs">
-              <button className="mt-3 text-xs font-semibold text-[#a198ff] hover:text-white cursor-pointer">Browse Jobs →</button>
+              <button className="mt-3 text-xs font-bold cursor-pointer hover:underline" style={{ color: "var(--accent)" }}>Browse Jobs →</button>
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.05]">
+          <div className="divide-y" style={{ borderColor: "var(--border-color)" }}>
             {recentApps.map((app, i) => (
               <div key={i} className="flex items-center gap-4 px-5 py-3.5">
-                <div className="w-9 h-9 rounded-xl bg-[#1e1e22] border border-white/10 flex items-center justify-center text-xs font-bold text-neutral-300 shrink-0">
+                <div className="w-9 h-9 rounded-xl border flex items-center justify-center text-xs font-bold shrink-0" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--accent)" }}>
                   {(app.companyName || app.applicantName || '?')[0].toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{app.jobTitle || 'Position'}</p>
-                  <p className="text-xs text-neutral-500 truncate">{app.companyName || 'Company'}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>{app.jobTitle || 'Position'}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{app.companyName || 'Company'}</p>
                 </div>
                 <StatusBadge status={app.status} />
               </div>
@@ -180,13 +192,13 @@ export default function SeekerDashboardPage() {
       </div>
 
       {/* CTA to browse jobs */}
-      <div className="bg-gradient-to-r from-[#6254f5]/20 to-[#a198ff]/10 border border-[#6254f5]/30 rounded-2xl p-5 flex items-center justify-between gap-4">
+      <div className="border rounded-2xl p-5 flex items-center justify-between gap-4" style={{ backgroundColor: "var(--accent-light)", borderColor: "var(--accent-border)" }}>
         <div>
-          <h3 className="text-sm font-bold text-white">Find your next opportunity</h3>
-          <p className="text-xs text-neutral-400 mt-0.5">Hundreds of verified jobs waiting for you.</p>
+          <h3 className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>Find your next opportunity</h3>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>Hundreds of verified jobs waiting for you.</p>
         </div>
         <Link href="/jobs">
-          <button className="flex items-center gap-2 bg-[#6254f5] hover:bg-[#7164ff] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-[#6254f5]/30 cursor-pointer transition-all whitespace-nowrap">
+          <button className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer transition-all whitespace-nowrap" style={{ backgroundColor: "var(--accent)" }}>
             Browse Jobs <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </Link>

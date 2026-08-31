@@ -1,9 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { ArrowRightFromSquare, LayoutSideContentLeft, Moon, Sun } from "@gravity-ui/icons";
+import {
+  ArrowRightFromSquare,
+  LayoutSideContentLeft,
+  Moon,
+  Sun,
+  Person,
+  Pencil,
+  FileText,
+  CrownDiamond,
+  ChevronDown,
+  ShieldCheck,
+  Briefcase,
+} from "@gravity-ui/icons";
 import { authClient, useSession } from "@/lib/auth-client";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -12,9 +24,22 @@ function Navbar() {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const profileDropdownRef = useRef(null);
 
   const { data: session, isPending } = useSession();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -24,6 +49,7 @@ function Navbar() {
           onSuccess: () => {
             setIsSigningOut(false);
             setIsMenuOpen(false);
+            setIsProfileOpen(false);
             router.push("/");
             router.refresh();
           },
@@ -36,18 +62,9 @@ function Navbar() {
   };
 
   const navLinks = [
-    {
-      name: "Browse Jobs",
-      href: "/jobs",
-    },
-    {
-      name: "Companies",
-      href: "/company",
-    },
-    {
-      name: "Pricing & Plans",
-      href: "/plans",
-    },
+    { name: "Browse Jobs", href: "/jobs" },
+    { name: "Companies", href: "/company" },
+    { name: "Pricing & Plans", href: "/plans" },
   ];
 
   const getDashboardRoute = () => {
@@ -57,10 +74,38 @@ function Navbar() {
     return "/dashboard/seeker";
   };
 
+  const getSettingsRoute = () => {
+    const role = session?.user?.role;
+    if (role === "admin") return "/dashboard/admin/settings";
+    if (role === "recruiter") return "/dashboard/recruiter/settings";
+    return "/dashboard/seeker/settings";
+  };
+
+  const getApplicationsRoute = () => {
+    const role = session?.user?.role;
+    if (role === "admin") return "/dashboard/admin/jobs";
+    if (role === "recruiter") return "/dashboard/recruiter/jobs";
+    return "/dashboard/seeker/applications";
+  };
+
   const dashboardRoute = getDashboardRoute();
+  const settingsRoute = getSettingsRoute();
+  const applicationsRoute = getApplicationsRoute();
+
+  const userRole = session?.user?.role || "job_seeker";
+  const userInitial = session?.user?.name
+    ? session.user.name.charAt(0).toUpperCase()
+    : "U";
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-[var(--border-color)] bg-[var(--bg-sidebar)]/90 backdrop-blur-xl transition-all">
+    <nav
+      className="sticky top-0 z-50 w-full border-b backdrop-blur-xl transition-all"
+      style={{
+        backgroundColor: "var(--bg-sidebar)",
+        borderColor: "var(--border-color)",
+        color: "var(--text-primary)",
+      }}
+    >
       <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-12">
         
         {/* ==================== LOGO ==================== */}
@@ -74,10 +119,10 @@ function Navbar() {
               <span className="text-white font-extrabold text-base tracking-wider">T</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-white font-extrabold text-lg tracking-tight group-hover:text-[#a198ff] transition-colors leading-none">
+              <span className="font-extrabold text-lg tracking-tight group-hover:text-[#6254f5] transition-colors leading-none" style={{ color: "var(--text-primary)" }}>
                 TalentGrid
               </span>
-              <span className="text-[10px] font-mono font-semibold tracking-widest text-[#a198ff] mt-0.5">
+              <span className="text-[10px] font-mono font-semibold tracking-widest mt-0.5" style={{ color: "var(--accent)" }}>
                 PLATFORM
               </span>
             </div>
@@ -93,11 +138,13 @@ function Navbar() {
                 <Link
                   href={link.href}
                   prefetch={true}
-                  className={`text-sm transition-all duration-150 ${
-                    isActive
-                      ? "text-white font-bold border-b-2 border-[#6254f5] pb-1"
-                      : "text-neutral-400 font-medium hover:text-white"
-                  }`}
+                  className="text-sm transition-all duration-150"
+                  style={{
+                    color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
+                    fontWeight: isActive ? "700" : "500",
+                    borderBottom: isActive ? "2px solid var(--accent)" : "none",
+                    paddingBottom: isActive ? "4px" : "0",
+                  }}
                 >
                   {link.name}
                 </Link>
@@ -111,50 +158,165 @@ function Navbar() {
           {/* Theme Switcher Toggle */}
           <button
             onClick={toggleTheme}
-            title="Toggle theme (Dark / Midnight / Light)"
-            className="p-2 rounded-xl border border-white/10 bg-white/5 text-neutral-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+            title="Toggle theme (Warm Cream / Dark / Midnight)"
+            className="p-2 rounded-xl border transition-all cursor-pointer"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
           >
-            {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === "light" ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-400" />}
           </button>
 
           {isPending ? (
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-white/5" />
+            <div className="h-9 w-24 animate-pulse rounded-lg" style={{ backgroundColor: "var(--border-color)" }} />
           ) : session?.user ? (
-            /* Logged In State */
-            <div className="flex items-center gap-3">
+            /* Logged In State with Interactive Profile Dropdown */
+            <div className="flex items-center gap-3 relative" ref={profileDropdownRef}>
+              
               <Link
                 href={dashboardRoute}
-                className="flex items-center gap-2 rounded-xl bg-[#6254f5] hover:bg-[#7164ff] text-white px-4 py-2 text-xs font-bold shadow-lg shadow-[#6254f5]/25 transition-all cursor-pointer"
+                className="flex items-center gap-2 rounded-xl text-white px-4 py-2 text-xs font-bold shadow-lg transition-all cursor-pointer"
+                style={{ backgroundColor: "var(--accent)" }}
               >
                 <LayoutSideContentLeft className="h-3.5 w-3.5" />
                 Dashboard
               </Link>
 
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 pl-2 pr-3.5 py-1.5 text-xs text-gray-200">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-linear-to-tr from-[#6254f5] to-[#8277ff] text-[10px] font-bold text-white shadow-sm">
-                  {session.user.name ? session.user.name.charAt(0).toUpperCase() : "U"}
+              {/* Interactive User Profile Trigger Button */}
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 rounded-full border pl-2 pr-3 py-1.5 text-xs transition-all cursor-pointer group"
+                style={{
+                  backgroundColor: isProfileOpen ? "var(--accent-light)" : "var(--bg-card)",
+                  borderColor: isProfileOpen ? "var(--accent-border)" : "var(--border-color)",
+                  color: "var(--text-primary)",
+                  boxShadow: "var(--shadow-sm)",
+                }}
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-linear-to-tr from-[#6254f5] to-[#8277ff] text-[10px] font-bold text-white shadow-sm shrink-0">
+                  {userInitial}
                 </span>
-                <span className="max-w-[120px] truncate font-medium text-white">
+                <span className="max-w-[110px] truncate font-medium">
                   {session.user.name || session.user.email}
                 </span>
-                {session.user.role && (
-                  <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
-                    session.user.role === "admin"
-                      ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
-                      : session.user.role === "recruiter"
-                      ? "border-[#ff7a00]/40 bg-[#ff7a00]/15 text-[#ff9838]"
-                      : "border-[#6254f5]/40 bg-[#6254f5]/15 text-[#a198ff]"
-                  }`}>
-                    {session.user.role === "admin" ? "Admin" : session.user.role === "recruiter" ? "Recruiter" : "Seeker"}
-                  </span>
-                )}
-              </div>
+                <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
+                  userRole === "admin"
+                    ? "border-amber-500/40 bg-amber-500/15 text-amber-500"
+                    : userRole === "recruiter"
+                    ? "border-[#ff7a00]/40 bg-[#ff7a00]/15 text-[#ff7a00]"
+                    : "border-[#6254f5]/40 bg-[#6254f5]/15 text-[#6254f5]"
+                }`}>
+                  {userRole === "admin" ? "Admin" : userRole === "recruiter" ? "Recruiter" : "Seeker"}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-neutral-400 transition-transform duration-200 ${isProfileOpen ? "rotate-180" : ""}`} />
+              </button>
 
+              {/* ==================== PROFILE POPUP DROPDOWN ==================== */}
+              {isProfileOpen && (
+                <div
+                  className="absolute right-0 top-12 mt-2 w-72 rounded-2xl border p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--border-color)",
+                    boxShadow: "var(--shadow-lg)",
+                  }}
+                >
+                  {/* User Profile Header */}
+                  <div className="p-3 border-b flex items-center gap-3" style={{ borderColor: "var(--border-color)" }}>
+                    <div className="w-10 h-10 rounded-xl bg-linear-to-tr from-[#6254f5] to-[#8277ff] flex items-center justify-center text-white font-extrabold text-sm shadow-md shrink-0">
+                      {userInitial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>
+                        {session.user.name || "User"}
+                      </p>
+                      <p className="text-[11px] truncate" style={{ color: "var(--text-muted)" }}>
+                        {session.user.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Navigation Links */}
+                  <div className="py-2 flex flex-col gap-1">
+                    <Link
+                      href={settingsRoute}
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <Pencil className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                      <span>Edit My Profile</span>
+                      <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
+                        New
+                      </span>
+                    </Link>
+
+                    <Link
+                      href={dashboardRoute}
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <LayoutSideContentLeft className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                      <span>My Workspace Dashboard</span>
+                    </Link>
+
+                    <Link
+                      href={applicationsRoute}
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      {userRole === "recruiter" ? (
+                        <Briefcase className="w-3.5 h-3.5 text-amber-500" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                      )}
+                      <span>{userRole === "recruiter" ? "My Job Postings" : "My Applications"}</span>
+                    </Link>
+
+                    <Link
+                      href="/plans"
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                      style={{ color: "var(--text-primary)" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg-secondary)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <CrownDiamond className="w-3.5 h-3.5 text-pink-500" />
+                      <span>Subscription &amp; Plans</span>
+                    </Link>
+                  </div>
+
+                  {/* Sign Out Action */}
+                  <div className="border-t pt-1" style={{ borderColor: "var(--border-color)" }}>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      disabled={isSigningOut}
+                      className="flex w-full items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                    >
+                      <ArrowRightFromSquare className="w-3.5 h-3.5" />
+                      <span>{isSigningOut ? "Signing Out..." : "Sign Out"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Sign Out Button */}
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2 text-xs font-medium text-red-400 transition-all duration-200 hover:bg-red-500/20 hover:text-red-300 disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2 text-xs font-medium text-red-500 transition-all duration-200 hover:bg-red-500/20 disabled:opacity-50 cursor-pointer"
               >
                 <ArrowRightFromSquare className="h-3.5 w-3.5" />
                 {isSigningOut ? "..." : "Sign Out"}
@@ -165,14 +327,16 @@ function Navbar() {
             <div className="flex items-center gap-3">
               <Link
                 href="/auth/signin"
-                className="text-sm font-medium text-[#8277ff] transition-colors duration-200 hover:text-[#a198ff]"
+                className="text-sm font-medium transition-colors duration-200"
+                style={{ color: "var(--accent)" }}
               >
                 Sign In
               </Link>
 
               <Link
                 href="/auth/signup"
-                className="rounded-xl bg-[#6254f5] px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#6254f5]/20 transition-all duration-200 hover:bg-[#7164ff] hover:shadow-[#6254f5]/30 cursor-pointer"
+                className="rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all duration-200 cursor-pointer"
+                style={{ backgroundColor: "var(--accent)" }}
               >
                 Get Started →
               </Link>
@@ -184,14 +348,16 @@ function Navbar() {
         <div className="flex items-center gap-2 md:hidden">
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg border border-white/10 bg-white/5 text-neutral-300"
+            className="p-2 rounded-lg border"
+            style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
           >
-            {theme === "light" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === "light" ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-400" />}
           </button>
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-300 transition-colors duration-200 hover:bg-white/10 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
+            style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +369,7 @@ function Navbar() {
 
       {/* ==================== MOBILE NAVIGATION ==================== */}
       {isMenuOpen && (
-        <div className="border-t border-white/10 bg-[#121214] md:hidden">
+        <div className="border-t md:hidden" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
           <div className="mx-auto max-w-7xl px-6 py-5">
             <ul className="flex flex-col gap-1.5">
               {navLinks.map((link) => (
@@ -211,14 +377,15 @@ function Navbar() {
                   <Link
                     href={link.href}
                     onClick={() => setIsMenuOpen(false)}
-                    className="block rounded-lg px-3 py-3 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white"
+                    className="block rounded-lg px-3 py-3 text-sm font-medium"
+                    style={{ color: "var(--text-secondary)" }}
                   >
                     {link.name}
                   </Link>
                 </li>
               ))}
 
-              <li className="my-2 border-t border-white/10" />
+              <li className="my-2 border-t" style={{ borderColor: "var(--border-color)" }} />
 
               {session?.user ? (
                 <>
@@ -226,16 +393,28 @@ function Navbar() {
                     <Link
                       href={dashboardRoute}
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-[#6254f5] px-4 py-3 text-center text-sm font-bold text-white shadow-lg shadow-[#6254f5]/25"
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-center text-sm font-bold text-white shadow-lg"
+                      style={{ backgroundColor: "var(--accent)" }}
                     >
                       <LayoutSideContentLeft className="h-4 w-4" />
                       Go to Dashboard
                     </Link>
                   </li>
-                  <li className="px-3 py-2 text-xs font-semibold text-gray-400 flex items-center justify-between">
+                  <li>
+                    <Link
+                      href={settingsRoute}
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-center text-xs font-bold border mt-1"
+                      style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" style={{ color: "var(--accent)" }} />
+                      Edit My Profile
+                    </Link>
+                  </li>
+                  <li className="px-3 py-2 text-xs font-semibold flex items-center justify-between" style={{ color: "var(--text-muted)" }}>
                     <span>{session.user.name || session.user.email}</span>
-                    <span className="text-[10px] uppercase font-bold text-[#a198ff]">
-                      {session.user.role || "Seeker"}
+                    <span className="text-[10px] uppercase font-bold" style={{ color: "var(--accent)" }}>
+                      {userRole}
                     </span>
                   </li>
                   <li>
@@ -243,7 +422,7 @@ function Navbar() {
                       type="button"
                       onClick={handleSignOut}
                       disabled={isSigningOut}
-                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 px-5 py-2.5 text-center text-sm font-semibold text-red-400"
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 px-5 py-2.5 text-center text-sm font-semibold text-red-500 cursor-pointer"
                     >
                       <ArrowRightFromSquare className="h-4 w-4" />
                       {isSigningOut ? "Signing Out..." : "Sign Out"}
@@ -256,7 +435,8 @@ function Navbar() {
                     <Link
                       href="/auth/signin"
                       onClick={() => setIsMenuOpen(false)}
-                      className="block rounded-lg px-3 py-3 text-sm font-medium text-[#8277ff] hover:bg-white/5 hover:text-[#a198ff]"
+                      className="block rounded-lg px-3 py-3 text-sm font-medium"
+                      style={{ color: "var(--accent)" }}
                     >
                       Sign In
                     </Link>
@@ -265,7 +445,8 @@ function Navbar() {
                     <Link
                       href="/auth/signup"
                       onClick={() => setIsMenuOpen(false)}
-                      className="mt-1 block rounded-lg bg-[#6254f5] px-5 py-3 text-center text-sm font-semibold text-white shadow-lg shadow-[#6254f5]/20 hover:bg-[#7164ff]"
+                      className="mt-1 block rounded-lg px-5 py-3 text-center text-sm font-semibold text-white shadow-lg"
+                      style={{ backgroundColor: "var(--accent)" }}
                     >
                       Get Started
                     </Link>

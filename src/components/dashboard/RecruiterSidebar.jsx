@@ -7,12 +7,14 @@ import {
   Plus,
   Factory,
   Persons,
+  Person,
   Gear,
   ArrowRightFromSquare as SignOutIcon,
   Bars,
   Xmark,
   Moon,
   Sun,
+  Pencil,
 } from "@gravity-ui/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,11 +23,11 @@ import { useTheme } from "@/context/ThemeContext";
 
 const navItems = [
   { icon: House, href: "/dashboard/recruiter", label: "Dashboard", exact: true },
+  { icon: Person, href: "/dashboard/recruiter/settings", label: "My Profile" },
   { icon: Briefcase, href: "/dashboard/recruiter/jobs", label: "My Job Postings" },
   { icon: Plus, href: "/dashboard/recruiter/jobs/new", label: "Post New Job" },
   { icon: Persons, href: "/dashboard/recruiter/applicants", label: "Applicant Pipeline" },
   { icon: Factory, href: "/dashboard/recruiter/company", label: "Company Brand" },
-  { icon: Gear, href: "/dashboard/recruiter/settings", label: "Settings" },
 ];
 
 export function RecruiterSidebar() {
@@ -55,18 +57,18 @@ export function RecruiterSidebar() {
     <div className="flex flex-col h-full justify-between bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] text-[var(--text-primary)] select-none">
       {/* Top Header / Brand */}
       <div className="flex flex-col">
-        <div className="h-16 px-5 flex items-center justify-between border-b border-white/[0.07]">
+        <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--border-color)]">
           <Link href="/dashboard/recruiter" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-xl bg-linear-to-tr from-[#ff7a00] to-[#ff9838] flex items-center justify-center shadow-lg shadow-[#ff7a00]/25">
               <span className="text-white font-extrabold text-sm tracking-wider">T</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-white font-bold text-sm tracking-tight group-hover:text-[#ff9838] transition-colors">TalentGrid</span>
-              <span className="text-[9px] font-mono font-semibold text-[#ff9838] -mt-0.5">EMPLOYER ATS</span>
+              <span className="font-bold text-sm tracking-tight group-hover:text-[#ff7a00] transition-colors" style={{ color: "var(--text-primary)" }}>TalentGrid</span>
+              <span className="text-[9px] font-mono font-semibold text-[#ff7a00] -mt-0.5">EMPLOYER ATS</span>
             </div>
           </Link>
           {mobileOpen && (
-            <button onClick={() => setMobileOpen(false)} className="lg:hidden text-neutral-400 hover:text-white p-1">
+            <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1" style={{ color: "var(--text-muted)" }}>
               <Xmark className="w-5 h-5" />
             </button>
           )}
@@ -74,7 +76,7 @@ export function RecruiterSidebar() {
 
         {/* Navigation Links */}
         <nav className="flex flex-col gap-1.5 px-3 py-4">
-          <span className="px-3 text-[10px] font-mono font-bold tracking-widest text-neutral-500 uppercase mb-1">
+          <span className="px-3 text-[10px] font-mono font-bold tracking-widest uppercase mb-1" style={{ color: "var(--text-muted)" }}>
             HIRING WORKSPACE
           </span>
           {navItems.map((item) => {
@@ -88,10 +90,13 @@ export function RecruiterSidebar() {
                 className={`relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-150 ${
                   active
                     ? "bg-[#ff7a00] text-white shadow-lg shadow-[#ff7a00]/25 font-bold"
-                    : "text-neutral-400 hover:text-white hover:bg-white/[0.04]"
+                    : "hover:bg-white/[0.06]"
                 }`}
+                style={{
+                  color: active ? "#ffffff" : "var(--text-secondary)",
+                }}
               >
-                <item.icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-neutral-500"}`} />
+                <item.icon className="w-4 h-4 shrink-0" style={{ color: active ? "#ffffff" : "var(--text-muted)" }} />
                 <span>{item.label}</span>
                 {active && <span className="absolute right-2.5 w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
               </Link>
@@ -101,33 +106,54 @@ export function RecruiterSidebar() {
       </div>
 
       {/* Bottom Profile & Theme / Sign Out Footer */}
-      <div className="p-3 border-t border-white/[0.07] flex flex-col gap-2">
+      <div className="p-3 border-t border-[var(--border-color)] flex flex-col gap-2">
         {session?.user && (
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-2.5 flex items-center justify-between gap-2">
+          <Link
+            href="/dashboard/recruiter/settings"
+            title="Click to edit your recruiter profile"
+            className="border rounded-xl p-2.5 flex items-center justify-between gap-2 group transition-all"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+            }}
+          >
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-[#ff7a00]/20 border border-[#ff7a00]/30 text-[#ff9838] flex items-center justify-center text-xs font-bold shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-[#ff7a00]/20 border border-[#ff7a00]/30 text-[#ff7a00] flex items-center justify-center text-xs font-bold shrink-0">
                 {(session.user.name || "R")[0].toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-white truncate">{session.user.name || "Recruiter"}</p>
-                <p className="text-[10px] text-neutral-400 truncate">{session.user.email}</p>
+                <p className="text-xs font-bold truncate group-hover:text-[#ff7a00] transition-colors" style={{ color: "var(--text-primary)" }}>
+                  {session.user.name || "Recruiter"}
+                </p>
+                <p className="text-[10px] truncate flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+                  <Pencil className="w-2.5 h-2.5" /> Edit Profile
+                </p>
               </div>
             </div>
             <button
-              onClick={toggleTheme}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleTheme();
+              }}
               title="Switch theme"
-              className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+              className="w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 cursor-pointer transition-colors"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                borderColor: "var(--border-color)",
+                color: "var(--text-primary)",
+              }}
             >
-              {theme === "light" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              {theme === "light" ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-indigo-400" />}
             </button>
-          </div>
+          </Link>
         )}
 
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-neutral-400 hover:text-red-400 hover:bg-red-500/10 transition-all w-full cursor-pointer"
+          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-xs font-semibold text-red-500 hover:bg-red-500/10 transition-all w-full cursor-pointer"
         >
-          <SignOutIcon className="w-4 h-4 text-neutral-500" />
+          <SignOutIcon className="w-4 h-4 text-red-500" />
           <span>Sign Out</span>
         </button>
       </div>
@@ -145,12 +171,13 @@ export function RecruiterSidebar() {
           <div className="w-7 h-7 rounded-lg bg-[#ff7a00] flex items-center justify-center text-white font-bold text-xs">
             T
           </div>
-          <span className="text-white font-bold text-sm">TalentGrid</span>
-          <span className="text-[9px] text-[#ff9838] bg-[#ff7a00]/15 px-2 py-0.5 rounded-full font-bold">Recruiter</span>
+          <span className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>TalentGrid</span>
+          <span className="text-[9px] text-[#ff7a00] bg-[#ff7a00]/15 px-2 py-0.5 rounded-full font-bold">Recruiter</span>
         </Link>
         <button
           onClick={() => setMobileOpen(true)}
-          className="text-neutral-300 hover:text-white p-1.5 rounded-lg bg-white/5 border border-white/10"
+          className="p-1.5 rounded-lg border"
+          style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
         >
           <Bars className="w-5 h-5" />
         </button>

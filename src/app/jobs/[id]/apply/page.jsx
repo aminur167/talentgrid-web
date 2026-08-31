@@ -13,9 +13,8 @@ import {
   Check,
   ArrowRight,
   Xmark,
-  CircleQuestion
+  CrownDiamond,
 } from "@gravity-ui/icons";
-import { Button, Spinner } from "@heroui/react";
 import { useSession } from "@/lib/auth-client";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
@@ -58,8 +57,6 @@ export default function JobApplyPage({ params: paramsPromise }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [imgError, setImgError] = useState(false);
-  
-  // Confirmation Modal State
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const [form, setForm] = useState({
@@ -97,38 +94,45 @@ export default function JobApplyPage({ params: paramsPromise }) {
       .catch(console.error);
   }, [session]);
 
-  // Pre-fill session user details if logged in
+  // Pre-fill user details from session / profile storage
   useEffect(() => {
     if (session?.user) {
-      setForm((prev) => ({
-        ...prev,
-        applicantName: session.user.name || prev.applicantName,
-        applicantEmail: session.user.email || prev.applicantEmail,
+      const saved = localStorage.getItem(`tg_profile_${session.user.id}`);
+      let savedData = {};
+      if (saved) {
+        try { savedData = JSON.parse(saved); } catch {}
+      }
+
+      setForm((p) => ({
+        ...p,
+        applicantName: savedData.name || session.user.name || "",
+        applicantEmail: session.user.email || "",
+        applicantPhone: savedData.phone || "",
+        applicantLocation: savedData.location || "",
+        resumeUrl: savedData.resumeUrl || "",
       }));
     }
   }, [session]);
 
-  // Fetch job details to display company header
   useEffect(() => {
     if (!id) return;
-
     if (!job) setLoadingJob(true);
+
     fetch(`${BASE_URL}/api/jobs/${id}`)
       .then((r) => {
         if (!r.ok) throw new Error("Job not found");
         return r.json();
       })
       .then((data) => {
-        setJob(data?.job || data);
+        const item = data?.job || data;
+        setJob(item);
       })
       .catch((err) => {
-        console.error("Fetch job error:", err);
-        if (!job) setError("Unable to fetch job details for application.");
+        console.error("Job fetch error:", err);
       })
       .finally(() => setLoadingJob(false));
   }, [id]);
 
-  // 1. Trigger confirmation popup when user clicks Submit Application
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!form.applicantName || !form.applicantEmail || !form.resumeUrl) {
@@ -136,10 +140,9 @@ export default function JobApplyPage({ params: paramsPromise }) {
       return;
     }
     setError("");
-    setShowConfirmModal(true); // Open confirmation dialog
+    setShowConfirmModal(true);
   };
 
-  // 2. Only executed when user clicks "OK / Confirm & Submit" inside the modal
   const executeFinalSubmit = async () => {
     setSubmitting(true);
     setError("");
@@ -147,8 +150,8 @@ export default function JobApplyPage({ params: paramsPromise }) {
     const payload = {
       jobId: id,
       companyId: job?.companyId || "",
-      companyName: job?.companyName || "HireLoop Partner",
-      jobTitle: job?.jobTitle || job?.title || "Software Engineer",
+      companyName: job?.companyName || "TalentGrid Employer",
+      jobTitle: job?.jobTitle || job?.title || "Position",
       applicantName: form.applicantName,
       applicantEmail: form.applicantEmail,
       applicantPhone: form.applicantPhone,
@@ -158,7 +161,7 @@ export default function JobApplyPage({ params: paramsPromise }) {
       availability: form.availability,
       coverLetter: form.coverLetter,
       status: "pending",
-      createdAt: new Date().toISOString(),
+      appliedAt: new Date().toISOString(),
     };
 
     try {
@@ -171,6 +174,8 @@ export default function JobApplyPage({ params: paramsPromise }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to submit job application.");
 
+      // Invalidate cache and update state
+      sessionStorage.removeItem("hl_browse_jobs_cache");
       setShowConfirmModal(false);
       setSuccess(true);
     } catch (err) {
@@ -184,9 +189,9 @@ export default function JobApplyPage({ params: paramsPromise }) {
 
   if (loadingJob) {
     return (
-      <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center gap-3">
-        <Spinner size="lg" color="secondary" />
-        <p className="text-sm text-neutral-400 font-medium">Preparing application form...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--accent)" }} />
+        <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>Preparing application form...</p>
       </div>
     );
   }
@@ -198,379 +203,297 @@ export default function JobApplyPage({ params: paramsPromise }) {
     ? companyName.split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase()
     : "CO";
 
+  const inputCls = "w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#6254f5] transition-colors";
+  const labelCls = "block text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1.5";
+
   return (
-    <div className="min-h-screen bg-[#09090b] text-white pb-20 relative">
+    <div className="min-h-screen pb-20 relative" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
 
       {/* ─── Top Header Navigation ─── */}
-      <div className="border-b border-white/[0.08] bg-[#141416]/50">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="border-b py-4 px-6 lg:px-12" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link
             href={`/jobs/${id}`}
-            className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-xs font-semibold hover:underline transition-colors"
+            style={{ color: "var(--text-secondary)" }}
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Job Details
           </Link>
-          <span className="text-xs text-neutral-500 font-medium">Applying for Position</span>
+          <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Applying for Position</span>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-6 pt-8 flex flex-col gap-8">
 
         {/* ─── Job Context Header Card ─── */}
-        <div className="bg-[#141416] border border-white/[0.08] rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="border rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
           <div className="flex items-center gap-4">
             {hasLogo ? (
               <img
                 src={job.companyLogo}
                 alt={companyName}
                 onError={() => setImgError(true)}
-                className="w-14 h-14 rounded-2xl object-cover bg-[#1e1e22] border border-white/10 shrink-0 shadow-md"
+                className="w-14 h-14 rounded-2xl object-cover border shrink-0 shadow-md"
+                style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
               />
             ) : (
-              <div className="w-14 h-14 rounded-2xl bg-[#1e1e22] border border-white/10 flex items-center justify-center text-base font-bold text-neutral-200 shrink-0 shadow-md">
+              <div className="w-14 h-14 rounded-2xl border flex items-center justify-center text-base font-bold shrink-0 shadow-md" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--accent)" }}>
                 {initials}
               </div>
             )}
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-bold text-[#a198ff] uppercase tracking-wider flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: "var(--accent)" }}>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                 Verified Application
               </span>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white">{title}</h1>
-              <p className="text-xs text-neutral-400">
-                <span className="text-neutral-200 font-semibold">{companyName}</span> • {job?.location || "Remote"}
+              <h1 className="text-xl sm:text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>{title}</h1>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>{companyName}</span> • {job?.location || "Remote"}
               </p>
             </div>
           </div>
 
-          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full shrink-0">
-            ● Actively Accepting Applications
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full shrink-0">
+            ● Accepting Applications
           </span>
         </div>
 
         {/* ─── Limit Reached View Screen ─── */}
         {isLimitReached ? (
-          <div className="bg-[#141416] border border-amber-500/30 rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 shadow-2xl animate-in fade-in">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <div className="border rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 shadow-2xl animate-in fade-in" style={{ backgroundColor: "var(--bg-card)", borderColor: "rgba(245,158,11,0.4)" }}>
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
               <CircleExclamation className="w-8 h-8" />
             </div>
 
             <div className="flex flex-col gap-2 max-w-md">
-              <h2 className="text-xl sm:text-2xl font-extrabold text-white">Application Limit Reached (3/3)</h2>
-              <p className="text-sm text-neutral-300 leading-relaxed">
-                You have used all 3 free job applications included in the Starter plan. To apply for <span className="text-white font-semibold">{title}</span> and unlimited other roles, please upgrade your plan.
+              <h2 className="text-xl sm:text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>Application Quota Reached (3/3)</h2>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                You have used all 3 free job applications. To apply for <span className="font-bold" style={{ color: "var(--text-primary)" }}>{title}</span> and unlimited other roles, please upgrade your plan.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <Link href="/plans">
-                <Button className="bg-[#6254f5] hover:bg-[#7164ff] text-white font-bold px-7 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-[#6254f5]/30">
-                  Upgrade Plan for Unlimited Applications <ArrowRight className="w-4 h-4" />
-                </Button>
+                <button className="text-white font-bold px-7 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer" style={{ backgroundColor: "var(--accent)" }}>
+                  <CrownDiamond className="w-4 h-4" /> Upgrade Plan for Unlimited Jobs <ArrowRight className="w-4 h-4" />
+                </button>
               </Link>
               <Link href="/jobs">
-                <Button className="bg-white/10 hover:bg-white/15 text-neutral-300 hover:text-white font-semibold px-5 py-3 rounded-xl text-xs">
+                <button className="border font-semibold px-5 py-3 rounded-xl text-xs cursor-pointer" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}>
                   Back to All Jobs
-                </Button>
+                </button>
               </Link>
             </div>
           </div>
         ) : success ? (
-          <div className="bg-[#141416] border border-emerald-500/30 rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 shadow-2xl animate-in fade-in">
-            <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
+          <div className="border rounded-3xl p-8 sm:p-12 text-center flex flex-col items-center gap-6 shadow-2xl animate-in fade-in" style={{ backgroundColor: "var(--bg-card)", borderColor: "rgba(16,185,129,0.3)" }}>
+            <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 shadow-xl">
               <Check className="w-10 h-10" />
             </div>
 
             <div className="flex flex-col gap-2 max-w-md">
-              <h2 className="text-2xl font-extrabold text-white">Application Submitted!</h2>
-              <p className="text-sm text-neutral-300 leading-relaxed">
-                Your application for <span className="text-white font-semibold">{title}</span> has been securely delivered to <span className="text-white font-semibold">{companyName}</span>.
+              <h2 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>Application Submitted! 🎉</h2>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                Your application for <span className="font-bold" style={{ color: "var(--text-primary)" }}>{title}</span> has been securely delivered to <span className="font-bold" style={{ color: "var(--text-primary)" }}>{companyName}</span>.
               </p>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 w-full max-w-md text-left text-xs flex flex-col gap-2.5">
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-neutral-400">Applicant Name</span>
-                <span className="text-white font-semibold">{form.applicantName}</span>
+            <div className="border rounded-2xl p-5 w-full max-w-md text-left text-xs flex flex-col gap-2.5" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+              <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--border-color)" }}>
+                <span style={{ color: "var(--text-muted)" }}>Applicant Name</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{form.applicantName}</span>
               </div>
-              <div className="flex justify-between border-b border-white/5 pb-2">
-                <span className="text-neutral-400">Email Address</span>
-                <span className="text-white font-semibold">{form.applicantEmail}</span>
+              <div className="flex justify-between border-b pb-2" style={{ borderColor: "var(--border-color)" }}>
+                <span style={{ color: "var(--text-muted)" }}>Email Address</span>
+                <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{form.applicantEmail}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-400">Resume Link</span>
-                <a href={form.resumeUrl} target="_blank" rel="noreferrer" className="text-[#a198ff] hover:underline font-semibold max-w-[180px] truncate">
-                  {form.resumeUrl}
-                </a>
+                <span style={{ color: "var(--text-muted)" }}>Status</span>
+                <span className="text-amber-500 font-bold uppercase">Pending Review</span>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-              <Link href="/jobs">
-                <Button className="bg-[#6254f5] hover:bg-[#7164ff] text-white font-bold px-6 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-[#6254f5]/25">
-                  Browse More Jobs <ArrowRight className="w-4 h-4" />
-                </Button>
+              <Link href="/dashboard/seeker/applications">
+                <button className="text-white font-bold px-6 py-3 rounded-xl text-xs cursor-pointer shadow-lg" style={{ backgroundColor: "var(--accent)" }}>
+                  View in My Applications →
+                </button>
               </Link>
-              <Link href="/dashboard">
-                <Button className="bg-white/10 hover:bg-white/15 text-white font-semibold px-6 py-3 rounded-xl text-xs">
-                  Go to Dashboard
-                </Button>
+              <Link href="/jobs">
+                <button className="border font-semibold px-5 py-3 rounded-xl text-xs cursor-pointer" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
+                  Browse More Jobs
+                </button>
               </Link>
             </div>
           </div>
         ) : (
-          /* ─── Application Form ─── */
-          <form onSubmit={handleFormSubmit} className="flex flex-col gap-8">
-
+          /* Application Form */
+          <form onSubmit={handleFormSubmit} className="border rounded-3xl p-6 sm:p-10 flex flex-col gap-6 shadow-xl" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+            
             {error && (
-              <div className="flex items-center gap-3 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-400 font-medium">
-                <CircleExclamation className="w-5 h-5 shrink-0" />
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-semibold p-4 rounded-xl flex items-center gap-2">
+                <CircleExclamation className="w-4 h-4 shrink-0" />
                 {error}
               </div>
             )}
 
-            {/* Section 1: Personal Details */}
-            <div className="bg-[#141416] border border-white/[0.08] rounded-3xl p-6 sm:p-8 flex flex-col gap-5">
-              <div className="flex items-center gap-2 border-b border-white/[0.08] pb-4">
-                <span className="w-6 h-6 rounded-full bg-[#6254f5]/20 text-[#a198ff] text-xs font-bold flex items-center justify-center border border-[#6254f5]/30">1</span>
-                <h2 className="text-base font-bold text-white">Personal Details</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Full Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. Aminur Islam"
-                    value={form.applicantName}
-                    onChange={(e) => setForm({ ...form, applicantName: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Email Address <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    required
-                    type="email"
-                    placeholder="you@example.com"
-                    value={form.applicantEmail}
-                    onChange={(e) => setForm({ ...form, applicantEmail: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Phone Number <span className="text-neutral-500 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="+880 1700 000000"
-                    value={form.applicantPhone}
-                    onChange={(e) => setForm({ ...form, applicantPhone: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Current Location <span className="text-neutral-500 font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dhaka, Bangladesh"
-                    value={form.applicantLocation}
-                    onChange={(e) => setForm({ ...form, applicantLocation: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Professional Profile & Resume */}
-            <div className="bg-[#141416] border border-white/[0.08] rounded-3xl p-6 sm:p-8 flex flex-col gap-5">
-              <div className="flex items-center gap-2 border-b border-white/[0.08] pb-4">
-                <span className="w-6 h-6 rounded-full bg-[#6254f5]/20 text-[#a198ff] text-xs font-bold flex items-center justify-center border border-[#6254f5]/30">2</span>
-                <h2 className="text-base font-bold text-white">Professional Profile & Links</h2>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                  Resume / Portfolio Link <span className="text-red-400">*</span>
-                </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className={labelCls}>Full Name *</label>
                 <input
+                  type="text"
                   required
+                  value={form.applicantName}
+                  onChange={(e) => setForm({ ...form, applicantName: e.target.value })}
+                  placeholder="Your full name"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={form.applicantEmail}
+                  onChange={(e) => setForm({ ...form, applicantEmail: e.target.value })}
+                  placeholder="your.email@example.com"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Phone Number</label>
+                <input
+                  type="tel"
+                  value={form.applicantPhone}
+                  onChange={(e) => setForm({ ...form, applicantPhone: e.target.value })}
+                  placeholder="+1 (555) 000-0000"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls}>Current Location</label>
+                <input
+                  type="text"
+                  value={form.applicantLocation}
+                  onChange={(e) => setForm({ ...form, applicantLocation: e.target.value })}
+                  placeholder="e.g. San Francisco, CA"
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Resume / CV Link (Google Drive, Dropbox, Notion, etc.) *</label>
+                <input
                   type="url"
-                  placeholder="https://drive.google.com/your-resume or https://github.com/yourusername"
+                  required
                   value={form.resumeUrl}
                   onChange={(e) => setForm({ ...form, resumeUrl: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
+                  placeholder="https://drive.google.com/your-resume-link"
+                  className={inputCls}
                 />
-                <p className="text-[11px] text-neutral-500">Provide a shareable Google Drive, Dropbox, LinkedIn, or personal website URL.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Expected Salary / Beton
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. $60,000 / yr or ৳80,000 / month"
-                    value={form.expectedSalary}
-                    onChange={(e) => setForm({ ...form, expectedSalary: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 px-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                    Notice Period / Availability
-                  </label>
-                  <select
-                    value={form.availability}
-                    onChange={(e) => setForm({ ...form, availability: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-[#1e1e22] py-3 px-4 text-sm text-white focus:border-[#6254f5] focus:outline-none cursor-pointer"
-                  >
-                    <option value="Immediate" className="bg-[#1e1e22]">Immediate Joiner</option>
-                    <option value="1 Week" className="bg-[#1e1e22]">1 Week</option>
-                    <option value="2 Weeks" className="bg-[#1e1e22]">2 Weeks</option>
-                    <option value="1 Month" className="bg-[#1e1e22]">1 Month</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Cover Letter & Pitch */}
-            <div className="bg-[#141416] border border-white/[0.08] rounded-3xl p-6 sm:p-8 flex flex-col gap-5">
-              <div className="flex items-center gap-2 border-b border-white/[0.08] pb-4">
-                <span className="w-6 h-6 rounded-full bg-[#6254f5]/20 text-[#a198ff] text-xs font-bold flex items-center justify-center border border-[#6254f5]/30">3</span>
-                <h2 className="text-base font-bold text-white">Cover Letter & Pitch</h2>
+              <div>
+                <label className={labelCls}>Expected Salary (Annual USD)</label>
+                <input
+                  type="text"
+                  value={form.expectedSalary}
+                  onChange={(e) => setForm({ ...form, expectedSalary: e.target.value })}
+                  placeholder="e.g. $120,000"
+                  className={inputCls}
+                />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                  Why are you a great fit for this role? <span className="text-neutral-500 font-normal">(Optional)</span>
-                </label>
+              <div>
+                <label className={labelCls}>Availability</label>
+                <select
+                  value={form.availability}
+                  onChange={(e) => setForm({ ...form, availability: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="Immediate">Immediate Start</option>
+                  <option value="2 Weeks">2 Weeks Notice</option>
+                  <option value="1 Month">1 Month Notice</option>
+                  <option value="Flexible">Flexible / Open</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className={labelCls}>Short Cover Note / Pitch to Hiring Team</label>
                 <textarea
-                  rows={5}
-                  placeholder="Share a brief overview of your background, technical achievements, and why you want to join this company..."
+                  rows={4}
                   value={form.coverLetter}
                   onChange={(e) => setForm({ ...form, coverLetter: e.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white placeholder:text-neutral-600 focus:border-[#6254f5] focus:outline-none resize-y transition-colors"
+                  placeholder="Tell the hiring manager why you are a great fit for this position..."
+                  className={`${inputCls} resize-none`}
                 />
               </div>
             </div>
 
-            {/* Submit Bar */}
-            <div className="flex items-center justify-end gap-4 pt-2">
+            <div className="border-t pt-6 flex items-center justify-between" style={{ borderColor: "var(--border-color)" }}>
               <Link href={`/jobs/${id}`}>
-                <Button className="bg-white/10 hover:bg-white/15 text-neutral-300 hover:text-white font-medium rounded-xl px-5 py-3 text-xs">
+                <button type="button" className="text-xs font-semibold hover:underline" style={{ color: "var(--text-secondary)" }}>
                   Cancel
-                </Button>
+                </button>
               </Link>
-              <Button
-                type="submit"
-                className="bg-[#6254f5] hover:bg-[#7164ff] active:scale-95 text-white font-bold text-sm px-8 py-3 rounded-xl shadow-xl shadow-[#6254f5]/30 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                Submit Application
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </form>
-        )}
-      </div>
-
-      {/* ─── CONFIRMATION ALERT MODAL (OK / CANCEL DIALOG) ─── */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#141416] border border-white/15 rounded-3xl max-w-md w-full p-6 sm:p-7 text-white flex flex-col gap-6 shadow-2xl relative">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#6254f5]/20 border border-[#6254f5]/40 flex items-center justify-center text-[#a198ff]">
-                  <CircleQuestion className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Confirm Application</h3>
-                  <p className="text-xs text-neutral-400">Please confirm before sending</p>
-                </div>
-              </div>
 
               <button
-                onClick={() => setShowConfirmModal(false)}
-                className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                type="submit"
+                className="text-white font-bold px-8 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer transition-all"
+                style={{ backgroundColor: "var(--accent)" }}
               >
+                Submit Application <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+          </form>
+        )}
+
+      </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="border rounded-3xl max-w-md w-full p-6 flex flex-col gap-5 shadow-2xl" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border-color)" }}>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5" style={{ color: "var(--accent)" }} />
+                <h3 className="text-base font-bold">Confirm Job Submission</h3>
+              </div>
+              <button onClick={() => setShowConfirmModal(false)} className="p-1 cursor-pointer" style={{ color: "var(--text-muted)" }}>
                 <Xmark className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Prompt Text */}
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-neutral-200 font-medium leading-relaxed">
-                আপনি কি নিশ্চিত যে আপনি <span className="text-[#a198ff] font-bold">{title}</span> পজিশনে <span className="text-white font-bold">{companyName}</span> কোম্পানিতে আপনার আবেদনটি জমা দিতে চান?
-              </p>
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Are you sure you want to submit your application for <strong style={{ color: "var(--text-primary)" }}>{title}</strong> at <strong style={{ color: "var(--text-primary)" }}>{companyName}</strong>?
+            </p>
 
-              {/* Summary Box */}
-              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 flex flex-col gap-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">আবেদনকারীর নাম:</span>
-                  <span className="text-white font-semibold">{form.applicantName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">ইমেইল:</span>
-                  <span className="text-white font-semibold">{form.applicantEmail}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">রেজুমে লিংক:</span>
-                  <span className="text-[#a198ff] font-semibold max-w-[150px] truncate">{form.resumeUrl}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Actions: Cancel vs OK (Confirm) */}
-            <div className="flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+            <div className="flex justify-end gap-3 pt-2">
               <button
-                type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-neutral-300 hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl border text-xs font-semibold cursor-pointer"
+                style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}
               >
-                Cancel / পরিবর্তন করুন
+                Cancel
               </button>
-
               <button
-                type="button"
-                disabled={submitting}
                 onClick={executeFinalSubmit}
-                className="px-5 py-2.5 rounded-xl bg-[#6254f5] hover:bg-[#7164ff] active:scale-95 text-white text-xs font-bold shadow-lg shadow-[#6254f5]/30 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                disabled={submitting}
+                className="px-6 py-2 rounded-xl text-white text-xs font-bold shadow-md cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
+                style={{ backgroundColor: "var(--accent)" }}
               >
-                {submitting ? (
-                  <>
-                    <Spinner size="sm" color="white" />
-                    জমা হচ্ছে...
-                  </>
-                ) : (
-                  <>
-                    OK / হ্যাঁ, জমা দিন
-                    <Check className="w-4 h-4" />
-                  </>
-                )}
+                {submitting ? "Submitting..." : "Yes, Submit Application"}
               </button>
             </div>
-
           </div>
         </div>
       )}
+
     </div>
   );
 }

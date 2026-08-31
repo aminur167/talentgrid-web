@@ -9,12 +9,12 @@ const ThemeContext = createContext({
 });
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState("dark");
+  const [theme, setThemeState] = useState("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem("talentgrid_theme") || "dark";
+    const savedTheme = localStorage.getItem("talentgrid_theme") || "light";
     setThemeState(savedTheme);
     document.documentElement.setAttribute("data-theme", savedTheme);
     if (savedTheme === "light") {

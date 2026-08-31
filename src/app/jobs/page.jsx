@@ -18,7 +18,6 @@ import {
   ArrowRight,
   CrownDiamond,
 } from "@gravity-ui/icons";
-import { Button, Spinner } from "@heroui/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
@@ -58,114 +57,132 @@ export default function PublicJobsPage() {
   // Fetch applicant application count if logged in
   useEffect(() => {
     if (!session?.user?.email) return;
-    const activePlan = typeof window !== "undefined" ? localStorage.getItem("hl_user_plan") : null;
-    if (activePlan === "growth" || activePlan === "premium") {
-      setHasReachedLimit(false);
-      return;
-    }
-
     fetch(`${BASE_URL}/api/applications?applicantEmail=${encodeURIComponent(session.user.email)}`)
       .then((r) => r.json())
       .then((data) => {
         const count = data?.total || data?.applications?.length || 0;
         setApplicantCount(count);
-        if (count >= 3) {
-          setHasReachedLimit(true);
-        }
+        setHasReachedLimit(count >= 3);
       })
-      .catch(console.error);
-  }, [session]);
+      .catch(() => {});
+  }, [session?.user?.email]);
 
-  // Fetch jobs from server with real-time query params
-  const fetchJobs = () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search.trim()) params.append("search", search.trim());
-    if (selectedCategory !== "All") params.append("category", selectedCategory);
-    if (selectedType !== "All") params.append("jobType", selectedType);
-    if (isRemoteOnly) params.append("isRemote", "true");
-    if (locationQuery.trim()) params.append("location", locationQuery.trim());
-
-    fetch(`${BASE_URL}/api/jobs?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : data?.jobs || [];
-        setAllJobs(list);
-        if (data?.typeCounts) {
-          setTypeCounts(data.typeCounts);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
+  // Read URL search params on mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchJobs();
-      setCurrentPage(1);
-    }, 200);
-    return () => clearTimeout(timer);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("search");
+      const remote = params.get("isRemote");
+      if (s) setSearch(s);
+      if (remote === "true") setIsRemoteOnly(true);
+    }
+  }, []);
+
+  // Fetch jobs with instant sessionStorage cache hydration
+  useEffect(() => {
+    let isMounted = true;
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, counts, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          setAllJobs(data);
+          if (counts) setTypeCounts(counts);
+          setLoading(false);
+        }
+      }
+    } catch {}
+
+    const fetchJobs = async () => {
+      try {
+        const queryParams = new URLSearchParams();
+        if (search) queryParams.set("search", search);
+        if (selectedCategory && selectedCategory !== "All") queryParams.set("category", selectedCategory);
+        if (selectedType && selectedType !== "All") queryParams.set("jobType", selectedType);
+        if (isRemoteOnly || locationQuery === "@remote") queryParams.set("isRemote", "true");
+        if (locationQuery && locationQuery !== "@remote") queryParams.set("location", locationQuery);
+
+        const res = await fetch(`${BASE_URL}/api/jobs?${queryParams.toString()}`);
+        if (!res.ok) throw new Error("Failed to fetch jobs");
+        const json = await res.json();
+        const jobsList = Array.isArray(json) ? json : json.jobs || [];
+
+        if (isMounted) {
+          setAllJobs(jobsList);
+          if (json.typeCounts) {
+            setTypeCounts(json.typeCounts);
+          }
+          setLoading(false);
+
+          if (!search && selectedCategory === "All" && selectedType === "All" && !isRemoteOnly && !locationQuery) {
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ data: jobsList, counts: json.typeCounts, timestamp: Date.now() })
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Jobs fetch error:", err);
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchJobs();
+    return () => { isMounted = false; };
   }, [search, selectedCategory, selectedType, isRemoteOnly, locationQuery]);
 
-  // Pagination calculation
-  const totalPages = Math.max(1, Math.ceil(allJobs.length / ITEMS_PER_PAGE));
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedCategory, selectedType, isRemoteOnly, locationQuery]);
+
+  // Paginated jobs slice
   const paginatedJobs = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return allJobs.slice(start, start + ITEMS_PER_PAGE);
   }, [allJobs, currentPage]);
 
+  const totalPages = Math.ceil(allJobs.length / ITEMS_PER_PAGE) || 1;
+
   const handleRemoteToggle = () => {
-    setIsRemoteOnly((prev) => !prev);
-  };
-
-  const handleApplyClick = (jobId) => {
-    if (!session?.user) {
-      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/jobs/${jobId}/apply`)}`);
-      return;
+    if (isRemoteOnly || locationQuery === "@remote") {
+      setIsRemoteOnly(false);
+      setLocationQuery("");
+    } else {
+      setIsRemoteOnly(true);
+      setLocationQuery("@remote");
     }
-
-    const activePlan = typeof window !== "undefined" ? localStorage.getItem("hl_user_plan") : null;
-    const isPro = activePlan === "growth" || activePlan === "premium";
-
-    if (!isPro && applicantCount >= 3) {
-      router.push("/plans");
-      return;
-    }
-
-    router.push(`/jobs/${jobId}/apply`);
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white">
-
-      {/* ─── Hero Section ─── */}
-      <section className="border-b border-white/[0.07] bg-[#09090b]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)" }}>
+      
+      {/* ─── Hero Header ─── */}
+      <section className="py-12 px-6 lg:px-12 border-b" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-mono font-bold tracking-[0.2em] text-[#a198ff] uppercase bg-[#6254f5]/15 border border-[#6254f5]/30 px-3 py-1 rounded-full flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-[#a198ff] rounded-sm" />
-                HIRELOOP CAREERS
-              </span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold font-mono tracking-wider border mb-3" style={{ backgroundColor: "var(--accent-light)", borderColor: "var(--accent-border)", color: "var(--accent)" }}>
+              <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "var(--accent)" }} />
+              {loading ? "Searching..." : `${allJobs.length} Open Roles Available`}
             </div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-2">
-              Explore Open Roles
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Browse Verified Tech Positions
             </h1>
-            <p className="text-neutral-400 text-sm sm:text-base max-w-2xl leading-relaxed">
-              Find verified developer, design, and tech opportunities. 1-click instant application.
+            <p className="text-sm mt-1.5 max-w-xl" style={{ color: "var(--text-secondary)" }}>
+              Explore hand-screened engineering, design, and product roles at top tech companies.
             </p>
           </div>
 
-          {/* Seeker Quota Indicator Card */}
+          {/* Seeker Quota Badge */}
           {session?.user && (
-            <div className="bg-[#141416] border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col gap-2.5 max-w-sm w-full shadow-xl">
+            <div className="p-4 sm:p-5 rounded-2xl flex flex-col gap-2.5 max-w-sm w-full border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-neutral-300">Free Application Limit:</span>
-                <span className={`font-bold ${applicantCount >= 3 ? "text-red-400" : applicantCount === 2 ? "text-amber-400" : "text-emerald-400"}`}>
+                <span className="font-semibold" style={{ color: "var(--text-secondary)" }}>Free Application Limit:</span>
+                <span className={`font-bold ${applicantCount >= 3 ? "text-red-500" : applicantCount === 2 ? "text-amber-500" : "text-emerald-500"}`}>
                   {applicantCount} / 3 Free
                 </span>
               </div>
-              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border-color)" }}>
                 <div
                   className={`h-full transition-all duration-500 rounded-full ${
                     applicantCount >= 3 ? "bg-red-500 w-full" : applicantCount === 2 ? "bg-amber-400 w-2/3" : applicantCount === 1 ? "bg-emerald-400 w-1/3" : "bg-emerald-500 w-0"
@@ -173,10 +190,10 @@ export default function PublicJobsPage() {
                 />
               </div>
               <div className="flex items-center justify-between text-[11px] pt-0.5">
-                <span className="text-neutral-400">
+                <span style={{ color: "var(--text-muted)" }}>
                   {applicantCount >= 3 ? "Quota exhausted" : `${3 - applicantCount} free left`}
                 </span>
-                <Link href="/plans" className="text-[#a198ff] font-bold hover:underline flex items-center gap-1">
+                <Link href="/plans" className="font-bold hover:underline flex items-center gap-1" style={{ color: "var(--accent)" }}>
                   <CrownDiamond className="w-3 h-3" />
                   Upgrade Plan
                 </Link>
@@ -187,35 +204,37 @@ export default function PublicJobsPage() {
       </section>
 
       {/* ─── Search + Job Type Badges ─── */}
-      <section className="bg-[#09090b] border-b border-white/[0.07] py-4 sticky top-[80px] z-30 backdrop-blur-md bg-[#09090b]/90">
+      <section className="border-b py-4 sticky top-20 z-30 backdrop-blur-md" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--border-color)" }}>
         <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col gap-4">
           
           {/* Search Inputs Row */}
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
             {/* Title / Keyword Search */}
-            <div className="flex-1 flex items-center gap-3 bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5">
-              <Magnifier className="w-4 h-4 text-neutral-500 shrink-0" />
+            <div className="flex-1 flex items-center gap-3 rounded-xl px-4 py-2.5 border" style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--border-color)" }}>
+              <Magnifier className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
               <input
                 type="text"
                 placeholder="Search job title, skills, keyword..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                className="w-full bg-transparent text-sm focus:outline-none"
+                style={{ color: "var(--text-primary)" }}
               />
               {search && (
-                <button onClick={() => setSearch("")} className="text-neutral-500 hover:text-white text-xs shrink-0 cursor-pointer">✕</button>
+                <button onClick={() => setSearch("")} className="text-xs shrink-0 cursor-pointer" style={{ color: "var(--text-muted)" }}>✕</button>
               )}
             </div>
 
             {/* Location or @remote Input */}
-            <div className="w-full sm:w-60 flex items-center gap-2 bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5">
-              <LocationArrow className="w-4 h-4 text-neutral-500 shrink-0" />
+            <div className="w-full sm:w-60 flex items-center gap-2 rounded-xl px-4 py-2.5 border" style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--border-color)" }}>
+              <LocationArrow className="w-4 h-4 shrink-0" style={{ color: "var(--text-muted)" }} />
               <input
                 type="text"
                 placeholder="Location (or @remote)..."
                 value={locationQuery}
                 onChange={(e) => setLocationQuery(e.target.value)}
-                className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
+                className="w-full bg-transparent text-sm focus:outline-none"
+                style={{ color: "var(--text-primary)" }}
               />
             </div>
 
@@ -223,7 +242,8 @@ export default function PublicJobsPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-[#141416] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-neutral-300 focus:outline-none cursor-pointer"
+              className="rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer border"
+              style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c === "All" ? "All Categories" : c}</option>
@@ -235,9 +255,14 @@ export default function PublicJobsPage() {
               onClick={handleRemoteToggle}
               className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 isRemoteOnly || locationQuery === "@remote"
-                  ? "bg-[#6254f5] border-[#6254f5] text-white shadow-md shadow-[#6254f5]/30"
-                  : "bg-[#141416] border-white/[0.08] text-neutral-400 hover:text-white"
+                  ? "text-white shadow-md"
+                  : ""
               }`}
+              style={{
+                backgroundColor: isRemoteOnly || locationQuery === "@remote" ? "var(--accent)" : "var(--bg-card)",
+                borderColor: isRemoteOnly || locationQuery === "@remote" ? "var(--accent)" : "var(--border-color)",
+                color: isRemoteOnly || locationQuery === "@remote" ? "#ffffff" : "var(--text-secondary)"
+              }}
             >
               <Globe className="w-3.5 h-3.5" />
               Remote {typeCounts.remote > 0 ? `(${typeCounts.remote})` : ""}
@@ -246,7 +271,7 @@ export default function PublicJobsPage() {
 
           {/* Job Type Count Badges (Dynamic Count per type) */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-xs text-neutral-500 font-medium shrink-0 mr-1">Job Type:</span>
+            <span className="text-xs font-medium shrink-0 mr-1" style={{ color: "var(--text-muted)" }}>Job Type:</span>
             {JOB_TYPES.map((t) => {
               const countKey = t.id.toLowerCase();
               const count = countKey === "all" ? typeCounts.all || allJobs.length : typeCounts[countKey] || 0;
@@ -256,16 +281,19 @@ export default function PublicJobsPage() {
                 <button
                   key={t.id}
                   onClick={() => setSelectedType(t.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
-                    isSelected
-                      ? "bg-[#6254f5] border-[#6254f5] text-white shadow-md shadow-[#6254f5]/30"
-                      : "bg-[#141416] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
-                  }`}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer shrink-0"
+                  style={{
+                    backgroundColor: isSelected ? "var(--accent)" : "var(--bg-card)",
+                    borderColor: isSelected ? "var(--accent)" : "var(--border-color)",
+                    color: isSelected ? "#ffffff" : "var(--text-secondary)",
+                    boxShadow: isSelected ? "0 2px 8px rgba(98,84,245,0.3)" : "none"
+                  }}
                 >
                   <span>{t.label}</span>
-                  <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                    isSelected ? "bg-white/20 text-white" : "bg-white/5 text-neutral-400"
-                  }`}>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full" style={{
+                    backgroundColor: isSelected ? "rgba(255,255,255,0.25)" : "var(--border-color)",
+                    color: isSelected ? "#ffffff" : "var(--text-muted)"
+                  }}>
                     {count}
                   </span>
                 </button>
@@ -277,20 +305,20 @@ export default function PublicJobsPage() {
       </section>
 
       {/* ─── Jobs Grid + Pagination ─── */}
-      <section className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col gap-8">
+      <section className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col gap-8 flex-1">
         
-        {/* Limit reached warning alert on top if user has used 3 applications */}
+        {/* Limit reached warning alert */}
         {hasReachedLimit && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-300 text-xs">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-700 dark:text-amber-300 text-xs">
             <div className="flex items-center gap-3">
-              <CircleExclamation className="w-5 h-5 text-amber-400 shrink-0" />
+              <CircleExclamation className="w-5 h-5 text-amber-500 shrink-0" />
               <div>
-                <span className="font-bold text-white block">You have reached your 3 Free Job Applications Limit!</span>
+                <span className="font-bold block" style={{ color: "var(--text-primary)" }}>You have reached your 3 Free Job Applications Limit!</span>
                 Upgrade to Growth or Premium to apply for unlimited jobs.
               </div>
             </div>
             <Link href="/plans">
-              <button className="bg-[#6254f5] hover:bg-[#7164ff] text-white font-bold px-4 py-2 rounded-xl text-xs whitespace-nowrap cursor-pointer shadow-lg shadow-[#6254f5]/25">
+              <button className="text-white font-bold px-4 py-2 rounded-xl text-xs whitespace-nowrap cursor-pointer shadow-lg" style={{ backgroundColor: "var(--accent)" }}>
                 Upgrade Now →
               </button>
             </Link>
@@ -300,28 +328,24 @@ export default function PublicJobsPage() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-[#141416] border border-white/[0.07] rounded-2xl p-5 animate-pulse flex flex-col gap-4">
+              <div key={i} className="p-5 rounded-2xl animate-pulse flex flex-col gap-4 border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
                 <div className="flex justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-white/5" />
-                  <div className="w-16 h-4 rounded-full bg-white/5" />
+                  <div className="w-10 h-10 rounded-xl" style={{ backgroundColor: "var(--border-color)" }} />
+                  <div className="w-16 h-4 rounded-full" style={{ backgroundColor: "var(--border-color)" }} />
                 </div>
-                <div className="w-3/4 h-4 bg-white/5 rounded" />
-                <div className="w-1/2 h-3 bg-white/5 rounded" />
-                <div className="border-t border-white/[0.07] pt-4 flex justify-between">
-                  <div className="w-24 h-3 bg-white/5 rounded" />
-                  <div className="w-20 h-3 bg-white/5 rounded" />
-                </div>
+                <div className="w-3/4 h-4 rounded" style={{ backgroundColor: "var(--border-color)" }} />
+                <div className="w-1/2 h-3 rounded" style={{ backgroundColor: "var(--border-color)" }} />
               </div>
             ))}
           </div>
         ) : allJobs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-28 gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-neutral-500">
-              <Briefcase className="w-7 h-7" />
+            <div className="w-16 h-16 rounded-2xl border flex items-center justify-center" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+              <Briefcase className="w-7 h-7" style={{ color: "var(--text-muted)" }} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white mb-1">No Open Roles Found</h3>
-              <p className="text-neutral-500 text-sm max-w-sm">
+              <h3 className="text-base font-semibold mb-1" style={{ color: "var(--text-primary)" }}>No Open Roles Found</h3>
+              <p className="text-sm max-w-sm" style={{ color: "var(--text-muted)" }}>
                 Try adjusting your search keywords, location (@remote), or category filters.
               </p>
             </div>
@@ -333,184 +357,144 @@ export default function PublicJobsPage() {
                 setSelectedType("All");
                 setIsRemoteOnly(false);
               }}
-              className="text-sm text-[#a198ff] hover:underline cursor-pointer"
+              className="text-sm font-semibold hover:underline cursor-pointer"
+              style={{ color: "var(--accent)" }}
             >
               Reset all filters
             </button>
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <p className="text-neutral-500 text-xs sm:text-sm">
-                Showing <span className="text-white font-semibold">{paginatedJobs.length}</span> of{" "}
-                <span className="text-white font-semibold">{allJobs.length}</span> open roles
-              </p>
-              {totalPages > 1 && (
-                <p className="text-neutral-500 text-xs">
-                  Page <span className="text-neutral-300 font-semibold">{currentPage}</span> of {totalPages}
-                </p>
-              )}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedJobs.map((job) => {
+              const salaryFormatted = job.minSalary && job.maxSalary
+                ? `$${(job.minSalary / 1000).toFixed(0)}k – $${(job.maxSalary / 1000).toFixed(0)}k`
+                : job.salary || "Competitive";
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {paginatedJobs.map((job) => (
-                <JobCard
-                  key={job._id || job.title}
-                  job={job}
-                  onApply={() => handleApplyClick(job._id || job.id)}
-                />
-              ))}
-            </div>
+              const categoryBadge = job.category || job.jobType || "Full-Time";
 
-            {/* Pagination Bar */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-6">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => {
-                    setCurrentPage((p) => Math.max(1, p - 1));
-                    window.scrollTo({ top: 280, behavior: "smooth" });
+              return (
+                <div
+                  key={job._id}
+                  className="rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-4 border transition-all duration-200 group"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--border-color)",
+                    boxShadow: "var(--shadow-sm)"
                   }}
-                  className="p-2.5 rounded-xl border border-white/10 bg-[#141416] text-neutral-400 hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {[...Array(totalPages)].map((_, idx) => {
-                  const pageNum = idx + 1;
-                  const isActive = pageNum === currentPage;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => {
-                        setCurrentPage(pageNum);
-                        window.scrollTo({ top: 280, behavior: "smooth" });
-                      }}
-                      className={`w-9 h-9 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-[#6254f5] border-[#6254f5] text-white shadow-md shadow-[#6254f5]/30"
-                          : "bg-[#141416] border-white/10 text-neutral-400 hover:text-white hover:border-white/20"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => {
-                    setCurrentPage((p) => Math.min(totalPages, p + 1));
-                    window.scrollTo({ top: 280, behavior: "smooth" });
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--accent-border)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-md)";
                   }}
-                  className="p-2.5 rounded-xl border border-white/10 bg-[#141416] text-neutral-400 hover:text-white disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--border-color)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+                  }}
                 >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </>
+                  {/* Top: Company Logo + Badges */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
+                        {(job.companyName || "?")[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-secondary)" }}>
+                          {job.companyName || "Verified Company"}
+                        </span>
+                        <h2 className="text-sm sm:text-base font-bold truncate group-hover:text-[#6254f5] transition-colors" style={{ color: "var(--text-primary)" }}>
+                          {job.title}
+                        </h2>
+                      </div>
+                    </div>
+
+                    {/* Remote / Type Badge */}
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
+                      {categoryBadge}
+                    </span>
+                  </div>
+
+                  {/* Middle: Details & Requirements snippet */}
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+                      <LocationArrow className="w-3.5 h-3.5" style={{ color: "var(--text-muted)" }} />
+                      {job.location || (job.isRemote ? "Remote" : "Global")}
+                    </span>
+
+                    {job.isRemote && (
+                      <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        <Globe className="w-3 h-3" />
+                        Remote
+                      </span>
+                    )}
+
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+                      <CircleDollar className="w-3.5 h-3.5" style={{ color: "var(--accent)" }} />
+                      {salaryFormatted}
+                    </span>
+                  </div>
+
+                  {/* Bottom Action */}
+                  <div className="border-t pt-4 flex items-center justify-between gap-3 mt-auto" style={{ borderColor: "var(--border-color)" }}>
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      {job.deadline ? `Deadline: ${new Date(job.deadline).toLocaleDateString()}` : "Open until filled"}
+                    </span>
+
+                    <Link href={`/jobs/${job._id}`}>
+                      <button
+                        className="flex items-center gap-1 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                        style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "var(--accent)";
+                          e.currentTarget.style.color = "#ffffff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "var(--accent-light)";
+                          e.currentTarget.style.color = "var(--accent)";
+                        }}
+                      >
+                        View & Apply <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ─── Pagination Bar ─── */}
+        {allJobs.length > ITEMS_PER_PAGE && (
+          <div className="flex items-center justify-between border-t pt-6" style={{ borderColor: "var(--border-color)" }}>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, allJobs.length)} of {allJobs.length} roles
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                className="p-2 rounded-xl border transition-all disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="text-xs font-bold px-3 py-1.5 rounded-xl border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                className="p-2 rounded-xl border transition-all disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
 
       </section>
-
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════
-   Job Card Component
-════════════════════════════════════════════════ */
-function JobCard({ job, onApply }) {
-  const router = useRouter();
-  const [imgErr, setImgErr] = useState(false);
-
-  const jobId = job._id?.$oid || job._id || job.id;
-  const title = job.title || job.jobTitle || "Open Role";
-  const companyName = job.companyName || "Company";
-  const initials = companyName.slice(0, 2).toUpperCase();
-  const hasLogo = job.companyLogo && !imgErr;
-
-  return (
-    <div
-      onMouseEnter={() => {
-        if (jobId) router.prefetch(`/jobs/${jobId}`);
-      }}
-      className="group bg-[#141416] border border-white/[0.08] hover:border-white/20 rounded-2xl p-5 flex flex-col justify-between gap-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/50"
-    >
-      <div className="flex flex-col gap-3">
-        {/* Top Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            {hasLogo ? (
-              <img
-                src={job.companyLogo}
-                alt={companyName}
-                onError={() => setImgErr(true)}
-                className="w-10 h-10 rounded-xl object-cover bg-[#1e1e22] border border-white/10 shrink-0"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-[#1e1e22] border border-white/10 flex items-center justify-center text-xs font-bold text-neutral-200 shrink-0">
-                {initials}
-              </div>
-            )}
-            <div>
-              <h3 className="text-sm font-semibold text-white group-hover:text-[#a198ff] transition-colors line-clamp-1">
-                <Link href={`/jobs/${jobId}`}>{title}</Link>
-              </h3>
-              <p className="text-xs text-neutral-400 line-clamp-1">{companyName}</p>
-            </div>
-          </div>
-
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-white/5 border-white/10 text-neutral-300 shrink-0 capitalize">
-            {job.jobType || "Full-Time"}
-          </span>
-        </div>
-
-        {/* Location & Remote Pill */}
-        <div className="flex items-center gap-2 text-xs text-neutral-400 flex-wrap">
-          <span className="flex items-center gap-1">
-            <LocationArrow className="w-3.5 h-3.5 text-neutral-500" />
-            {job.location || "Remote"}
-          </span>
-          {job.isRemote && (
-            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              @remote
-            </span>
-          )}
-          {job.category && (
-            <span className="text-[10px] text-neutral-400 bg-white/5 px-2 py-0.5 rounded-full">
-              {job.category}
-            </span>
-          )}
-        </div>
-
-        {/* Salary */}
-        {(job.minSalary || job.maxSalary) && (
-          <div className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-            <CircleDollar className="w-3.5 h-3.5" />
-            ${Number(job.minSalary || 0).toLocaleString()} – ${Number(job.maxSalary || 0).toLocaleString()} / yr
-          </div>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="border-t border-white/[0.07] pt-3.5 flex items-center justify-between gap-2">
-        <Link
-          href={`/jobs/${jobId}`}
-          className="text-xs font-semibold text-neutral-400 hover:text-white flex items-center gap-1 transition-colors"
-        >
-          Details <ArrowRight className="w-3 h-3" />
-        </Link>
-
-        <button
-          onClick={onApply}
-          className="bg-[#6254f5] hover:bg-[#7164ff] text-white font-bold px-4 py-1.5 rounded-xl text-xs transition-all shadow-md shadow-[#6254f5]/25 cursor-pointer flex items-center gap-1"
-        >
-          Apply Now
-        </button>
-      </div>
     </div>
   );
 }

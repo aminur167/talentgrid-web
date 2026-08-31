@@ -40,20 +40,51 @@ export default function SeekerSettingsPage() {
   const [skillInput, setSkillInput] = useState("");
 
   useEffect(() => {
-    if (session?.user) {
-      setForm((prev) => ({
-        ...prev,
-        name: session.user.name || "",
-        email: session.user.email || "",
-        avatar: session.user.image || "",
-      }));
-      // Load saved profile from localStorage
-      const saved = localStorage.getItem(`tg_profile_${session.user.id}`);
-      if (saved) {
-        try { setForm(JSON.parse(saved)); } catch {}
-      }
-    }
-  }, [session]);
+    if (!session?.user) return;
+    const email = session.user.email;
+    const id = session.user.id;
+
+    // Try loading from MongoDB first, fallback to localStorage
+    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app"}/api/seeker/profile?email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.success && data?.profile) {
+          const p = data.profile;
+          setForm(prev => ({
+            ...prev,
+            name: p.name || session.user.name || "",
+            email: p.email || email,
+            avatar: p.avatar || p.image || session.user.image || "",
+            phone: p.phone || "",
+            location: p.location || "",
+            headline: p.headline || "",
+            bio: p.bio || "",
+            website: p.website || "",
+            linkedin: p.linkedin || "",
+            github: p.github || "",
+            skills: p.skills || [],
+            education: p.education || "",
+            experience: p.experience || "",
+            resumeUrl: p.resumeUrl || "",
+          }));
+          // Update localStorage cache
+          localStorage.setItem(`tg_profile_${id}`, JSON.stringify(data.profile));
+        } else {
+          // Fallback to localStorage
+          const cached = localStorage.getItem(`tg_profile_${id}`);
+          if (cached) {
+            try { setForm(JSON.parse(cached)); } catch {}
+          } else {
+            setForm(prev => ({ ...prev, name: session.user.name || "", email, avatar: session.user.image || "" }));
+          }
+        }
+      })
+      .catch(() => {
+        // Network error — use localStorage
+        const cached = localStorage.getItem(`tg_profile_${id}`);
+        if (cached) try { setForm(JSON.parse(cached)); } catch {}
+      });
+  }, [session?.user?.email]);
 
   const set = (field, val) => setForm((p) => ({ ...p, [field]: val }));
 
@@ -71,11 +102,29 @@ export default function SeekerSettingsPage() {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    localStorage.setItem(`tg_profile_${session?.user?.id}`, JSON.stringify(form));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      const payload = { ...form, email: session?.user?.email };
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_URL || "https://talentgrid-api.vercel.app"}/api/seeker/profile`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      // Also cache in localStorage as backup
+      localStorage.setItem(`tg_profile_${session?.user?.id}`, JSON.stringify(form));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Profile save error:", err);
+      // Fallback: save to localStorage only
+      localStorage.setItem(`tg_profile_${session?.user?.id}`, JSON.stringify(form));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [

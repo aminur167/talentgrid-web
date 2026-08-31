@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Magnifier, ArrowRight, Briefcase, CircleCheck, ShieldCheck,
   CrownDiamond, Persons, CircleDollar, Factory, Check,
+  Bookmark, BookmarkFill,
 } from "@gravity-ui/icons";
 import { useSession } from "@/lib/auth-client";
 
@@ -49,6 +50,8 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [featuredJobs, setFeaturedJobs] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [savedJobIds, setSavedJobIds] = useState(new Set());
+  const [togglingBookmark, setTogglingBookmark] = useState(null);
 
   useEffect(() => {
     fetch(`${BASE_URL}/api/jobs?limit=6`)
@@ -61,8 +64,40 @@ export default function Home() {
       .finally(() => setLoadingJobs(false));
   }, []);
 
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    fetch(`${BASE_URL}/api/saved-jobs?email=${encodeURIComponent(session.user.email)}&_t=${Date.now()}`, { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => { if (data?.savedJobIds) setSavedJobIds(new Set(data.savedJobIds)); })
+      .catch(() => {});
+  }, [session?.user?.email]);
+
+  const handleToggleBookmark = async (e, jobId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!session?.user?.email) { router.push("/auth/signin?callbackUrl=/"); return; }
+    setTogglingBookmark(jobId);
+    try {
+      const res = await fetch(`${BASE_URL}/api/saved-jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email, jobId }),
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setSavedJobIds(prev => {
+          const next = new Set(prev);
+          if (data.isSaved) next.add(jobId);
+          else next.delete(jobId);
+          return next;
+        });
+      }
+    } catch {} finally { setTogglingBookmark(null); }
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
+
     router.push(searchTerm.trim() ? `/jobs?search=${encodeURIComponent(searchTerm.trim())}` : "/jobs");
   };
 
@@ -218,12 +253,27 @@ export default function Home() {
                 <Link
                   key={job._id}
                   href={`/jobs/${job._id}`}
-                  className="flex flex-col gap-3 p-5 rounded-2xl transition-all group"
+                  className="flex flex-col gap-3 p-5 rounded-2xl transition-all group relative"
                   style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.boxShadow = "var(--shadow-sm)"; }}
                 >
-                  <div className="flex items-center gap-3">
+                  {/* Bookmark Button */}
+                  <button
+                    onClick={(e) => handleToggleBookmark(e, job._id)}
+                    disabled={togglingBookmark === job._id}
+                    className="absolute top-4 right-4 p-1.5 rounded-lg border transition-all cursor-pointer hover:scale-110"
+                    style={{
+                      backgroundColor: savedJobIds.has(job._id) ? "rgba(245,158,11,0.15)" : "var(--bg-secondary)",
+                      borderColor: savedJobIds.has(job._id) ? "rgba(245,158,11,0.3)" : "var(--border-color)",
+                      color: savedJobIds.has(job._id) ? "#f59e0b" : "var(--text-muted)",
+                    }}
+                    title={savedJobIds.has(job._id) ? "Saved" : "Save Job"}
+                  >
+                    {savedJobIds.has(job._id) ? <BookmarkFill className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                  </button>
+
+                  <div className="flex items-center gap-3 pr-8">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0" style={{ backgroundColor: "var(--accent-light)", color: "var(--accent)" }}>
                       {(job.companyName || "?")[0].toUpperCase()}
                     </div>

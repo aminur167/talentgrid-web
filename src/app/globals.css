@@ -1,31 +1,70 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-:root {
+/* ═══════════════════════════════════════════════════
+   DEFAULT: Dark Theme
+═══════════════════════════════════════════════════ */
+:root,
+[data-theme="dark"] {
   --bg-primary: #09090b;
   --bg-card: #141416;
-  --bg-sidebar: #0d0d0f;
+  --bg-sidebar: #0c0c0e;
+  --bg-sidebar-hover: rgba(255,255,255,0.04);
+  --border-color: rgba(255,255,255,0.08);
   --accent-color: #6254f5;
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --scrollbar-thumb: rgba(255,255,255,0.15);
+  --scrollbar-hover: rgba(255,255,255,0.3);
 }
 
+/* ═══════════════════════════════════════════════════
+   Midnight Blue Theme
+═══════════════════════════════════════════════════ */
 [data-theme="midnight"] {
   --bg-primary: #070913;
   --bg-card: #0e1222;
   --bg-sidebar: #090c1a;
+  --bg-sidebar-hover: rgba(255,255,255,0.04);
+  --border-color: rgba(255,255,255,0.08);
   --accent-color: #705df2;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --scrollbar-thumb: rgba(255,255,255,0.12);
+  --scrollbar-hover: rgba(255,255,255,0.25);
 }
 
+/* ═══════════════════════════════════════════════════
+   Warm Cream / Ivory Light Theme (user-selected)
+═══════════════════════════════════════════════════ */
 [data-theme="light"] {
-  --bg-primary: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-sidebar: #f1f5f9;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
+  --bg-primary: #f2ede4;
+  --bg-card: #faf7f2;
+  --bg-sidebar: #ede8de;
+  --bg-sidebar-hover: rgba(0,0,0,0.04);
+  --border-color: rgba(0,0,0,0.08);
+  --accent-color: #6254f5;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
+  --scrollbar-thumb: rgba(0,0,0,0.15);
+  --scrollbar-hover: rgba(0,0,0,0.3);
 }
 
-/* Smooth custom scrollbars */
+/* ═══════════════════════════════════════════════════
+   Apply theme to body
+═══════════════════════════════════════════════════ */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.25s ease, color 0.2s ease;
+}
+
+/* ═══════════════════════════════════════════════════
+   Slim custom scrollbars
+═══════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -36,10 +75,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--scrollbar-hover);
 }

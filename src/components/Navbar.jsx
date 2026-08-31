@@ -60,7 +60,7 @@ function Navbar() {
   const dashboardRoute = getDashboardRoute();
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#0c0c0e]/90 backdrop-blur-xl transition-all">
+    <nav className="sticky top-0 z-50 w-full border-b border-[var(--border-color)] bg-[var(--bg-sidebar)]/90 backdrop-blur-xl transition-all">
       <header className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-12">
         
         {/* ==================== LOGO ==================== */}

@@ -52,7 +52,7 @@ export function RecruiterSidebar() {
   };
 
   const sidebarNav = (
-    <div className="flex flex-col h-full justify-between bg-[#0c0c0e] border-r border-white/[0.08] text-white select-none">
+    <div className="flex flex-col h-full justify-between bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] text-[var(--text-primary)] select-none">
       {/* Top Header / Brand */}
       <div className="flex flex-col">
         <div className="h-16 px-5 flex items-center justify-between border-b border-white/[0.07]">
@@ -140,7 +140,7 @@ export function RecruiterSidebar() {
         {sidebarNav}
       </aside>
 
-      <div className="lg:hidden sticky top-0 z-40 bg-[#0c0c0e] border-b border-white/[0.08] px-4 py-3 flex items-center justify-between">
+      <div className="lg:hidden sticky top-0 z-40 bg-[var(--bg-sidebar)] border-b border-[var(--border-color)] px-4 py-3 flex items-center justify-between">
         <Link href="/dashboard/recruiter" className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-[#ff7a00] flex items-center justify-center text-white font-bold text-xs">
             T

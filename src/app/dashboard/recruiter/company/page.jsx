@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, Button, Spinner } from "@heroui/react";
 import { 
   Briefcase, 
   Globe, 
@@ -51,37 +50,30 @@ export default function CompanyPage() {
     description: "",
   });
 
-  // ── Load companies (cache-first → instant, then background sync) ──
   const loadCompanies = async (showLoading = true) => {
     if (!recruiterEmail) { setLoading(false); return; }
-
-    // Instant cache hit
     if (companies.length > 0) { setLoading(false); }
 
     try {
-      if (showLoading && companies.length === 0) setLoading(true);
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000";
-      const res = await fetch(
-        `${baseUrl}/api/companies?recruiterEmail=${encodeURIComponent(recruiterEmail)}`
-      );
-      const data = await res.json();
-      const list = data?.companies || [];
+      const data = await getMyCompanies(recruiterEmail);
+      const list = Array.isArray(data) ? data : data?.companies || [];
       setCompanies(list);
-      if (typeof window !== "undefined") {
+      try {
         sessionStorage.setItem("hireloop_companies_cache", JSON.stringify(list));
-      }
+      } catch (e) {}
     } catch (err) {
-      console.error("Failed to load companies:", err);
+      console.error("Error loading companies:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadCompanies(companies.length === 0);
+    if (recruiterEmail) {
+      loadCompanies();
+    }
   }, [recruiterEmail]);
 
-  // Open modal for new company
   const handleOpenAddModal = () => {
     setEditingCompany(null);
     setFormData({
@@ -94,84 +86,59 @@ export default function CompanyPage() {
       description: "",
     });
     setErrorMsg("");
+    setSuccessMsg("");
     setIsOpen(true);
   };
 
-  // Open modal for editing existing company
-  const handleOpenEditModal = (comp) => {
-    setEditingCompany(comp);
+  const handleOpenEditModal = (company) => {
+    setEditingCompany(company);
     setFormData({
-      name: comp.name || "",
-      website: comp.website || "",
-      logo: comp.logo || "",
-      industry: comp.industry || "Technology",
-      location: comp.location || "",
-      size: comp.size || "11-50 employees",
-      description: comp.description || "",
+      name: company.name || "",
+      website: company.website || "",
+      logo: company.logo || "",
+      industry: company.industry || "Technology",
+      location: company.location || "",
+      size: company.size || "11-50 employees",
+      description: company.description || "",
     });
     setErrorMsg("");
+    setSuccessMsg("");
     setIsOpen(true);
   };
 
-  // Handle Logo Upload via ImgBB
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Instant local preview for 0ms visual feedback
-    const localPreview = URL.createObjectURL(file);
-    setFormData((prev) => ({ ...prev, logo: localPreview }));
     setUploading(true);
     setErrorMsg("");
 
     try {
-      const uploadData = new FormData();
-      uploadData.append("image", file);
-
-      const apiKey = process.env.NEXT_PUBLIC_IMAGE_API || "0f8d43d741ecdaaad95444214e9a6b49";
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+      const form = new FormData();
+      form.append("image", file);
+      const apiKey = process.env.NEXT_PUBLIC_IMAGE_API;
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
         method: "POST",
-        body: uploadData,
+        body: form,
       });
-
-      const data = await response.json();
-      if (data?.success && (data.data?.url || data.data?.display_url)) {
-        const hostedUrl = data.data.display_url || data.data.url;
-        setFormData((prev) => ({ ...prev, logo: hostedUrl }));
+      const data = await res.json();
+      if (data.success) {
+        setFormData((prev) => ({ ...prev, logo: data.data.url }));
+      } else {
+        setErrorMsg("Image upload failed. Please try again.");
       }
-    } catch (error) {
-      console.error("ImgBB upload error:", error);
+    } catch (err) {
+      console.error("Upload error:", err);
+      setErrorMsg("Error uploading image.");
     } finally {
       setUploading(false);
     }
   };
 
-  // Delete company from MongoDB Atlas
-  const handleDeleteCompany = async (id) => {
-    if (!confirm("Are you sure you want to delete this company profile?")) return;
-    setDeletingId(id);
-    setErrorMsg("");
-    setSuccessMsg("");
-    try {
-      await deleteCompany(id);
-      const updated = companies.filter((c) => c._id !== id);
-      setCompanies(updated);
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("hireloop_companies_cache", JSON.stringify(updated));
-      }
-      setSuccessMsg("Company deleted successfully!");
-    } catch (err) {
-      setErrorMsg(err.message || "Failed to delete company.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  // Submit Handler to Save/Create Company to MongoDB Atlas
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name) {
-      setErrorMsg("Company Name is required.");
+    if (!formData.name.trim()) {
+      setErrorMsg("Company name is required.");
       return;
     }
 
@@ -179,367 +146,347 @@ export default function CompanyPage() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    const userEmail = recruiterEmail || session?.user?.email || "recruiter@hireloop.com";
-    const recruiterIdVal = session?.user?.id || userEmail;
-
-    const payload = {
-      name: formData.name,
-      websiteUrl: formData.website,
-      website: formData.website,
-      industry: formData.industry,
-      location: formData.location,
-      employCount: formData.size,
-      size: formData.size,
-      description: formData.description,
-      logo: formData.logo, // ImgBB URL
-      recruiterId: recruiterIdVal,
-      recruiterEmail: userEmail,
-      recruiterName: session?.user?.name || "Recruiter",
-    };
-
     try {
-      if (editingCompany?._id) {
-        // Update existing company
-        const res = await updateCompany(editingCompany._id, payload);
-        const updatedComp = res?.company || { ...editingCompany, ...payload };
-        const newArr = companies.map((c) => (c._id === editingCompany._id ? updatedComp : c));
-        setCompanies(newArr);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("hireloop_companies_cache", JSON.stringify(newArr));
+      if (editingCompany) {
+        const res = await updateCompany(editingCompany._id, formData);
+        if (res.success) {
+          setSuccessMsg("Company profile updated successfully!");
+          setIsOpen(false);
+          loadCompanies(false);
+        } else {
+          setErrorMsg(res.message || "Failed to update company.");
         }
-        setSuccessMsg("Company profile updated successfully!");
       } else {
-        // Create new company profile
-        const result = await createCompany(payload);
-        const newComp = result?.company || { ...payload, _id: result?.companyId };
-        const newArr = [newComp, ...companies];
-        setCompanies(newArr);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("hireloop_companies_cache", JSON.stringify(newArr));
+        const payload = {
+          ...formData,
+          recruiterEmail,
+          status: "pending",
+          isApproved: false,
+        };
+        const res = await createCompany(payload);
+        if (res.success) {
+          setSuccessMsg("Company registered successfully! Submitted for admin approval.");
+          setIsOpen(false);
+          loadCompanies(false);
+        } else {
+          setErrorMsg(res.message || "Failed to create company.");
         }
-        setSuccessMsg("New company profile created successfully!");
       }
-
-      setIsOpen(false);
     } catch (err) {
-      console.error("Save company profile error:", err);
-      setErrorMsg(err.message || "Failed to save company profile.");
+      console.error("Form submit error:", err);
+      setErrorMsg("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDeleteCompany = async (companyId) => {
+    if (!window.confirm("Are you sure you want to delete this company profile?")) return;
+    setDeletingId(companyId);
+    try {
+      const res = await deleteCompany(companyId);
+      if (res.success) {
+        setSuccessMsg("Company deleted.");
+        loadCompanies(false);
+      } else {
+        setErrorMsg(res.message || "Could not delete company.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      setErrorMsg("Failed to delete company.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const getStatusBadge = (status, isApproved) => {
-    if (isApproved === true || status === "Approved") {
+    if (status === "approved" || isApproved) {
       return (
-        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          <ShieldCheck className="w-3.5 h-3.5" /> Approved
+        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+          <ShieldCheck className="w-3.5 h-3.5" /> Verified Brand
+        </span>
+      );
+    }
+    if (status === "rejected") {
+      return (
+        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
+          <Xmark className="w-3.5 h-3.5" /> Needs Attention
         </span>
       );
     }
     return (
-      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
         <Clock className="w-3.5 h-3.5" /> Pending Review
       </span>
     );
   };
 
+  const inputCls = "w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[#ff7a00] transition-colors";
+  const labelCls = "block text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-1.5";
+
   return (
-    <div className="p-6 md:p-8 bg-[#09090b] min-h-screen text-white">
-      <div className="max-w-5xl mx-auto flex flex-col gap-8">
-        
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Company Profiles</h1>
-            <p className="text-sm text-neutral-400">Manage all your registered business profiles and hiring brands.</p>
-          </div>
-          <Button 
-            onClick={handleOpenAddModal}
-            className="bg-[#6254f5] text-white hover:bg-[#7164ff] font-semibold text-sm px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-[#6254f5]/20"
-          >
-            <Plus className="w-4 h-4" /> Register New Company
-          </Button>
+    <div className="flex flex-col gap-6 max-w-5xl">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>
+            Company Brand &amp; Profiles
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            Manage all your registered business profiles and employer brand identity.
+          </p>
         </div>
+        <button 
+          onClick={handleOpenAddModal}
+          className="text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg cursor-pointer transition-all"
+          style={{ backgroundColor: "#ff7a00" }}
+        >
+          <Plus className="w-4 h-4" /> Register New Company
+        </button>
+      </div>
 
-        {/* Feedback Messages */}
-        {successMsg && (
-          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-            {successMsg}
-          </div>
-        )}
-        {errorMsg && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-            {errorMsg}
-          </div>
-        )}
+      {/* Feedback Messages */}
+      {successMsg && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold">
+          {successMsg}
+        </div>
+      )}
+      {errorMsg && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-semibold">
+          {errorMsg}
+        </div>
+      )}
 
-        {/* Loading Spinner */}
-        {loading ? (
-          <Card className="bg-[#141416] border border-white/10 p-16 rounded-2xl flex flex-col items-center justify-center text-center gap-3">
-            <Spinner size="md" color="secondary" />
-            <p className="text-sm text-neutral-400">Loading company profiles...</p>
-          </Card>
-        ) : companies.length === 0 ? (
-          /* Empty State: No Companies Registered */
-          <Card className="bg-[#141416] border border-white/10 p-12 rounded-2xl flex flex-col items-center justify-center text-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center text-neutral-400 border border-white/10">
-              <Briefcase className="w-7 h-7" />
-            </div>
-            <div className="flex flex-col gap-1 max-w-md">
-              <h2 className="text-lg font-semibold text-white">No Companies Registered Yet</h2>
-              <p className="text-sm text-neutral-400">
-                You haven't added any company profiles yet. Click below to register your first business profile.
-              </p>
-            </div>
-            <Button 
-              onClick={handleOpenAddModal}
-              className="mt-2 bg-[#6254f5] text-white hover:bg-[#7164ff] font-semibold px-6 py-2.5 rounded-xl shadow-lg shadow-[#6254f5]/20"
-            >
-              Register Company Profile
-            </Button>
-          </Card>
-        ) : (
-          /* Registered Companies List */
-          <div className="flex flex-col gap-6">
-            {companies.map((comp) => (
-              <Card key={comp._id || comp.name} className="bg-[#141416] border border-white/10 p-6 md:p-8 rounded-2xl flex flex-col gap-6 transition-all hover:border-white/20">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-6">
-                  <div className="flex items-center gap-4">
-                    {comp.logo && comp.logo.trim() ? (
-                      <img
-                        src={comp.logo}
-                        alt={comp.name || "Company Logo"}
-                        className="w-16 h-16 rounded-2xl object-cover bg-[#222226] border border-white/10"
-                        onError={(e) => { e.currentTarget.style.display = "none"; }}
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-[#222226] border border-white/10 flex items-center justify-center text-lg font-bold text-neutral-300">
-                        {comp.name ? comp.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() : "CO"}
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-1">
-                      <h2 className="text-xl font-bold text-white">{comp.name}</h2>
-                      {comp.website && (
-                        <a href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`} target="_blank" rel="noreferrer" className="text-sm text-[#a198ff] hover:underline flex items-center gap-1.5 transition-colors">
-                          <Globe className="w-3.5 h-3.5" /> {comp.website}
-                        </a>
-                      )}
+      {/* Content */}
+      {loading ? (
+        <div className="border p-16 rounded-2xl flex flex-col items-center justify-center text-center gap-3" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#ff7a00" }} />
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Loading company profiles...</p>
+        </div>
+      ) : companies.length === 0 ? (
+        <div className="border p-12 rounded-2xl flex flex-col items-center justify-center text-center gap-4" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)" }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center border" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-muted)" }}>
+            <Briefcase className="w-7 h-7" />
+          </div>
+          <div className="flex flex-col gap-1 max-w-md">
+            <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>No Company Profiles Yet</h2>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              Add your hiring organization to establish credibility and begin posting verified positions.
+            </p>
+          </div>
+          <button 
+            onClick={handleOpenAddModal}
+            className="mt-2 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md cursor-pointer"
+            style={{ backgroundColor: "#ff7a00" }}
+          >
+            Register Company Profile
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {companies.map((comp) => (
+            <div key={comp._id || comp.name} className="border p-6 rounded-2xl flex flex-col gap-5 transition-all" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", boxShadow: "var(--shadow-sm)" }}>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-5" style={{ borderColor: "var(--border-color)" }}>
+                <div className="flex items-center gap-4">
+                  {comp.logo && comp.logo.trim() ? (
+                    <img
+                      src={comp.logo}
+                      alt={comp.name || "Company Logo"}
+                      className="w-14 h-14 rounded-2xl object-cover border"
+                      style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl border flex items-center justify-center text-base font-bold" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "#ff7a00" }}>
+                      {comp.name ? comp.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() : "CO"}
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(comp.status, comp.isApproved)}
-                    <Button 
-                      onClick={() => handleOpenEditModal(comp)}
-                      className="bg-[#222226] text-white hover:bg-[#2a2a2f] border border-[#27272a] font-medium text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                    >
-                      <Pencil className="w-3.5 h-3.5" /> Edit
-                    </Button>
-                    <Button 
-                      onClick={() => handleDeleteCompany(comp._id)}
-                      isLoading={deletingId === comp._id}
-                      className="bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 font-medium text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                    >
-                      <TrashBin className="w-3.5 h-3.5" /> Delete
-                    </Button>
+                  )}
+                  <div className="flex flex-col gap-0.5">
+                    <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{comp.name}</h2>
+                    {comp.website && (
+                      <a href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`} target="_blank" rel="noreferrer" className="text-xs text-[#6254f5] hover:underline flex items-center gap-1">
+                        <Globe className="w-3 h-3" /> {comp.website}
+                      </a>
+                    )}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 py-2">
-                  <div className="flex flex-col gap-1 bg-white/5 p-4 rounded-xl border border-white/5">
-                    <span className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Industry</span>
-                    <span className="text-sm font-semibold text-neutral-200">{comp.industry || "Technology"}</span>
-                  </div>
-                  <div className="flex flex-col gap-1 bg-white/5 p-4 rounded-xl border border-white/5">
-                    <span className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Location</span>
-                    <span className="text-sm font-semibold text-neutral-200 flex items-center gap-1.5">
-                      <LocationArrow className="w-3.5 h-3.5 text-neutral-400" /> {comp.location || "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1 bg-white/5 p-4 rounded-xl border border-white/5">
-                    <span className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Company Size</span>
-                    <span className="text-sm font-semibold text-neutral-200 flex items-center gap-1.5">
-                      <Person className="w-3.5 h-3.5 text-neutral-400" /> {comp.size || "11-50 employees"}
-                    </span>
-                  </div>
+                
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(comp.status, comp.isApproved)}
+                  <button 
+                    onClick={() => handleOpenEditModal(comp)}
+                    className="border text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                    style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}
+                  >
+                    <Pencil className="w-3 h-3" /> Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteCompany(comp._id)}
+                    disabled={deletingId === comp._id}
+                    className="border border-red-500/20 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <TrashBin className="w-3 h-3" />
+                  </button>
                 </div>
-
-                {comp.description && (
-                  <div className="flex flex-col gap-1.5 border-t border-white/10 pt-4">
-                    <span className="text-xs text-neutral-400 uppercase tracking-wider font-medium">About Company</span>
-                    <p className="text-sm text-neutral-300 leading-relaxed">{comp.description}</p>
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Register / Edit Modal Matching Screenshot Design */}
-        {isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-[#18181b] border border-white/10 rounded-2xl max-w-xl w-full text-white flex flex-col shadow-2xl overflow-hidden">
-              
-              {/* Modal Header */}
-              <div className="flex items-start justify-between p-6 border-b border-white/10">
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-xl font-bold text-white tracking-tight">
-                    {editingCompany ? "Edit Company Profile" : "Register New Company"}
-                  </h3>
-                  <p className="text-xs text-neutral-400">
-                    Enter your business details to start hiring on HireLoop.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="text-neutral-400 hover:text-white p-1 rounded-lg transition-colors"
-                >
-                  <Xmark className="w-5 h-5" />
-                </button>
               </div>
 
-              {/* Modal Body / Form */}
-              <form id="company-form" onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 max-h-[70vh] overflow-y-auto">
-                {/* Row 1: Company Name & Industry / Category */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Company Name</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. Acme Corp" 
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                      className="w-full bg-[#242427] border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-400 transition-colors"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Industry / Category</label>
-                    <select 
-                      value={formData.industry}
-                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                      className="w-full bg-[#242427] border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-400 transition-colors appearance-none cursor-pointer"
-                    >
-                      <option value="Technology">Technology</option>
-                      <option value="Fintech">Fintech</option>
-                      <option value="Healthcare">Healthcare</option>
-                      <option value="E-commerce">E-commerce</option>
-                      <option value="Education">Education</option>
-                    </select>
-                  </div>
+              {/* Details grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="border rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+                  <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Industry</span>
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{comp.industry || "Technology"}</span>
                 </div>
-
-                {/* Row 2: Website URL & Location */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Website URL</label>
-                    <div className="flex items-center bg-[#242427] border border-white/5 rounded-xl overflow-hidden focus-within:border-neutral-400 transition-colors">
-                      <span className="px-3 text-xs text-neutral-400 bg-white/5 border-r border-white/5 py-3">https://</span>
-                      <input 
-                        type="text"
-                        placeholder="www.company.com" 
-                        value={formData.website?.replace(/^https?:\/\//, '') || ''}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value ? `https://${e.target.value.replace(/^https?:\/\//, '')}` : '' })}
-                        className="w-full bg-transparent px-3 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Location</label>
-                    <div className="flex items-center bg-[#242427] border border-white/5 rounded-xl px-3 py-3 gap-2 focus-within:border-neutral-400 transition-colors">
-                      <LocationArrow className="w-4 h-4 text-neutral-400 shrink-0" />
-                      <input 
-                        type="text"
-                        placeholder="City, Country" 
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full bg-transparent text-sm text-white placeholder:text-neutral-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                <div className="border rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+                  <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Company Size</span>
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{comp.size || "11-50 employees"}</span>
                 </div>
-
-                {/* Row 3: Employee Count Range & Company Logo */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Employee Count Range</label>
-                    <select 
-                      value={formData.size}
-                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                      className="w-full bg-[#242427] border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-400 transition-colors appearance-none cursor-pointer"
-                    >
-                      <option value="1-10 employees">1-10 employees</option>
-                      <option value="11-50 employees">11-50 employees</option>
-                      <option value="51-200 employees">51-200 employees</option>
-                      <option value="201-500 employees">201-500 employees</option>
-                      <option value="500+ employees">500+ employees</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium text-neutral-200">Company Logo</label>
-                    <div className="flex items-center gap-3">
-                      <label className="border border-dashed border-white/20 bg-[#242427] hover:border-neutral-400 rounded-xl p-3 flex items-center gap-3 cursor-pointer transition-colors w-full">
-                        {formData.logo ? (
-                          <img 
-                            src={formData.logo} 
-                            alt="Logo" 
-                            className="w-8 h-8 rounded-lg object-cover bg-[#18181b] border border-white/10 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-lg bg-[#18181b] flex items-center justify-center text-neutral-300 shrink-0">
-                            <ArrowUpFromLine className="w-4 h-4" />
-                          </div>
-                        )}
-                        <div className="overflow-hidden">
-                          <p className="text-xs font-semibold text-white truncate">
-                            {uploading ? "Uploading logo..." : formData.logo ? "Logo Uploaded ✓" : "Upload image"}
-                          </p>
-                          <p className="text-[10px] text-neutral-400">PNG, JPG up to 5MB</p>
-                        </div>
-                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                      </label>
-                    </div>
-                  </div>
+                <div className="border rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+                  <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Location</span>
+                  <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{comp.location || "Global"}</span>
                 </div>
+                <div className="border rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+                  <span className="block text-[10px] font-bold uppercase" style={{ color: "var(--text-muted)" }}>Recruiter Lead</span>
+                  <span className="font-semibold truncate block" style={{ color: "var(--text-primary)" }}>{recruiterEmail}</span>
+                </div>
+              </div>
 
-                {/* Row 4: Brief Description */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-neutral-200">Brief Description</label>
-                  <textarea 
-                    rows={4}
-                    placeholder="Tell us about your company's mission and culture..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-[#242427] border border-white/5 rounded-xl p-4 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-neutral-400 resize-none transition-colors"
+              {comp.description && (
+                <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  {comp.description}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="border rounded-3xl max-w-lg w-full p-6 flex flex-col gap-5 shadow-2xl max-h-[90vh] overflow-y-auto" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border-color)", color: "var(--text-primary)" }}>
+            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--border-color)" }}>
+              <h3 className="text-base font-bold">
+                {editingCompany ? "Edit Company Profile" : "Register New Company"}
+              </h3>
+              <button onClick={() => setIsOpen(false)} className="p-1 cursor-pointer" style={{ color: "var(--text-muted)" }}>
+                <Xmark className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className={labelCls}>Company Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Acme Innovations Inc."
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Website URL</label>
+                  <input
+                    type="text"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    placeholder="https://company.com"
+                    className={inputCls}
                   />
                 </div>
-              </form>
+                <div>
+                  <label className={labelCls}>Headquarters Location</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="San Francisco, CA"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
 
-              {/* Modal Footer */}
-              <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10 bg-[#141416]">
-                <Button 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Industry</label>
+                  <select
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className={inputCls}
+                  >
+                    {["Technology", "Finance", "Healthcare", "E-Commerce", "Artificial Intelligence", "SaaS", "Media", "Other"].map(ind => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Company Size</label>
+                  <select
+                    value={formData.size}
+                    onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                    className={inputCls}
+                  >
+                    {["1-10 employees", "11-50 employees", "51-200 employees", "201-500 employees", "501-1000 employees", "1000+ employees"].map(sz => (
+                      <option key={sz} value={sz}>{sz}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Company Logo (URL or Upload)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.logo}
+                    onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
+                    placeholder="https://..."
+                    className={inputCls}
+                  />
+                  <label className="px-4 py-2.5 rounded-xl border text-xs font-bold shrink-0 cursor-pointer flex items-center gap-1.5" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)" }}>
+                    <ArrowUpFromLine className="w-3.5 h-3.5" />
+                    {uploading ? "..." : "Upload"}
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>About the Company</label>
+                <textarea
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Share mission, culture, and what you look for in candidates..."
+                  className={`${inputCls} resize-none`}
+                />
+              </div>
+
+              <div className="border-t pt-4 flex justify-end gap-2" style={{ borderColor: "var(--border-color)" }}>
+                <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="bg-[#242427] text-white hover:bg-neutral-700 font-medium rounded-xl text-sm px-6 py-2.5"
+                  className="px-4 py-2 rounded-xl border text-xs font-semibold cursor-pointer"
+                  style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--border-color)", color: "var(--text-secondary)" }}
                 >
                   Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  form="company-form"
-                  isLoading={submitting}
-                  className="bg-white text-black hover:bg-neutral-200 font-bold rounded-xl text-sm px-6 py-2.5 shadow-lg"
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2 rounded-xl text-white text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  style={{ backgroundColor: "#ff7a00" }}
                 >
-                  {editingCompany ? "Save Changes" : "Register Company"}
-                </Button>
+                  {submitting ? "Saving..." : editingCompany ? "Save Changes" : "Submit Company"}
+                </button>
               </div>
-            </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

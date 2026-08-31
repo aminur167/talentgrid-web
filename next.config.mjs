@@ -1,13 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Prevents double-rendering overhead in dev mode for instant click responsiveness
+  reactStrictMode: false,
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: '**' },
+      { protocol: 'http', hostname: '**' },
+    ],
+  },
   experimental: {
     staleTimes: {
-      dynamic: 60, // Keep dynamic pages in router memory cache for 60 seconds
+      dynamic: 60,
       static: 300,
     },
   },
 };
 
 export default nextConfig;
-

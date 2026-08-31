@@ -40,15 +40,48 @@ export default function AdminUsersPage() {
     .finally(() => setLoading(false));
   }, []);
 
+  const exportUsersCSV = () => {
+    if (users.length === 0) return;
+    const headers = ["Name", "Email", "Role", "Joined Date"];
+    const rows = users.map((u) => [
+      `"${u.name || 'Unnamed'}"`,
+      `"${u.email || ''}"`,
+      `"${u.role || 'job_seeker'}"`,
+      `"${u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : ''}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `talentgrid_users_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col gap-6 max-w-6xl">
-      <div>
-        <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>
-          User Directory
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          View and monitor all registered candidates, recruiters, and platform administrators.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold" style={{ color: "var(--text-primary)" }}>
+            User Directory
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+            View and monitor all registered candidates, recruiters, and platform administrators.
+          </p>
+        </div>
+        <button
+          onClick={exportUsersCSV}
+          disabled={users.length === 0}
+          className="flex items-center gap-2 border px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer hover:bg-[var(--bg-secondary)] shadow-sm disabled:opacity-50"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            borderColor: "var(--border-color)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <span>📥</span> Export Users CSV ({users.length})
+        </button>
       </div>
 
       {error && (

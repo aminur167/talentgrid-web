@@ -153,6 +153,31 @@ export default function RecruiterJobsPage() {
     }
   };
 
+  const exportJobsCSV = () => {
+    if (jobsList.length === 0) return;
+    const headers = ["Job Title", "Company", "Category", "Job Type", "Min Salary", "Max Salary", "Location", "Is Remote", "Deadline", "Candidates Count"];
+    const rows = jobsList.map((j) => [
+      `"${j.title || ''}"`,
+      `"${j.companyName || ''}"`,
+      `"${j.category || ''}"`,
+      `"${j.jobType || ''}"`,
+      `"${j.minSalary || ''}"`,
+      `"${j.maxSalary || ''}"`,
+      `"${j.location || ''}"`,
+      `"${j.isRemote ? 'Yes' : 'No'}"`,
+      `"${j.deadline ? j.deadline.split('T')[0] : ''}"`,
+      `"${j.applications || 0}"`
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `talentgrid_jobs_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const inputCls = "w-full bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl px-4 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[#ff7a00]";
   const labelCls = "block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1";
 
@@ -168,11 +193,25 @@ export default function RecruiterJobsPage() {
             Create, manage, and monitor applicant pipelines for all your active technical roles.
           </p>
         </div>
-        <Link href="/dashboard/recruiter/jobs/new">
-          <button className="flex items-center gap-2 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer" style={{ backgroundColor: "#ff7a00" }}>
-            <Plus className="w-4 h-4" /> Post New Job
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportJobsCSV}
+            disabled={jobsList.length === 0}
+            className="flex items-center gap-2 border px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer hover:bg-[var(--bg-secondary)] shadow-sm disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span>📥</span> Export Jobs CSV ({jobsList.length})
           </button>
-        </Link>
+          <Link href="/dashboard/recruiter/jobs/new">
+            <button className="flex items-center gap-2 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-lg cursor-pointer" style={{ backgroundColor: "#ff7a00" }}>
+              <Plus className="w-4 h-4" /> Post New Job
+            </button>
+          </Link>
+        </div>
       </div>
 
       {/* Content */}

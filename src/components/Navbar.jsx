@@ -20,6 +20,8 @@ import {
   Bookmark,
   Check,
   TrashBin,
+  Bars,
+  Xmark,
 } from "@gravity-ui/icons";
 import { authClient, useSession } from "@/lib/auth-client";
 import { useTheme } from "@/context/ThemeContext";
@@ -154,6 +156,7 @@ function Navbar() {
     { label: "Browse Jobs", href: "/jobs" },
     { label: "Companies", href: "/company" },
     { label: "Pricing & Plans", href: "/plans" },
+    ...(session?.user ? [{ label: "Dashboard", href: dashboardRoute, isDashboard: true }] : []),
   ];
 
   return (
@@ -184,22 +187,42 @@ function Navbar() {
         </div>
 
         {/* Desktop Navigation Links */}
-        <ul className="hidden items-center gap-8 md:flex">
+        <ul className="hidden items-center gap-6 md:flex">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = pathname === link.href || (link.isDashboard && pathname.startsWith("/dashboard"));
             return (
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="text-sm transition-all duration-150"
+                  className={`text-sm transition-all duration-150 flex items-center gap-1.5 ${
+                    link.isDashboard
+                      ? "px-3.5 py-1.5 rounded-xl border shadow-xs"
+                      : ""
+                  }`}
                   style={{
                     color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
                     fontWeight: isActive ? 700 : 500,
-                    borderBottom: isActive ? "2px solid var(--accent)" : "none",
-                    paddingBottom: isActive ? "4px" : "0",
+                    borderBottom: !link.isDashboard && isActive ? "2px solid var(--accent)" : "none",
+                    paddingBottom: !link.isDashboard && isActive ? "4px" : "0",
+                    backgroundColor: link.isDashboard
+                      ? isActive
+                        ? "var(--accent-light)"
+                        : "var(--bg-card)"
+                      : "transparent",
+                    borderColor: link.isDashboard
+                      ? isActive
+                        ? "var(--accent-border)"
+                        : "var(--border-color)"
+                      : "transparent",
                   }}
                 >
-                  {link.label}
+                  {link.isDashboard && (
+                    <LayoutSideContentLeft className="w-4 h-4 text-[#6254f5]" />
+                  )}
+                  <span>{link.label}</span>
+                  {link.isDashboard && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
                 </Link>
               </li>
             );
@@ -481,7 +504,129 @@ function Navbar() {
             </div>
           )}
         </div>
+
+        {/* Mobile Header Icons: Theme + Menu Button */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl border cursor-pointer"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {theme === "light" ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-400" />}
+          </button>
+
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-2 rounded-xl border cursor-pointer"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--border-color)",
+              color: "var(--text-primary)",
+            }}
+          >
+            {isMenuOpen ? <Xmark className="w-5 h-5" /> : <Bars className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
+
+      {/* Mobile Slide-down Drawer Menu */}
+      {isMenuOpen && (
+        <div
+          className="md:hidden border-t px-6 py-5 flex flex-col gap-4 animate-in slide-in-from-top-3 duration-200"
+          style={{
+            backgroundColor: "var(--bg-sidebar)",
+            borderColor: "var(--border-color)",
+          }}
+        >
+          <div className="flex flex-col gap-1.5">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href || (link.isDashboard && pathname.startsWith("/dashboard"));
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-between transition-colors ${
+                    isActive ? "font-bold shadow-xs" : ""
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? "var(--accent-light)" : "transparent",
+                    color: isActive ? "var(--accent)" : "var(--text-primary)",
+                    border: isActive ? "1px solid var(--accent-border)" : "none",
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    {link.isDashboard && <LayoutSideContentLeft className="w-4 h-4 text-[#6254f5]" />}
+                    {link.label}
+                  </span>
+                  {link.isDashboard && (
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                      Workspace
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          {session?.user ? (
+            <div className="border-t pt-4 flex flex-col gap-2" style={{ borderColor: "var(--border-color)" }}>
+              <div className="flex items-center gap-3 px-2 py-1">
+                <div className="w-8 h-8 rounded-lg bg-linear-to-tr from-[#6254f5] to-[#8277ff] text-white flex items-center justify-center font-bold text-xs">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate" style={{ color: "var(--text-primary)" }}>{session.user.name || "User"}</p>
+                  <p className="text-[10px] truncate" style={{ color: "var(--text-muted)" }}>{session.user.email}</p>
+                </div>
+              </div>
+
+              <Link
+                href={settingsRoute}
+                onClick={() => setIsMenuOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit Profile
+              </Link>
+
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-red-500 flex items-center gap-2 hover:bg-red-500/10 cursor-pointer"
+              >
+                <ArrowRightFromSquare className="w-3.5 h-3.5" /> Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="border-t pt-4 flex items-center gap-3" style={{ borderColor: "var(--border-color)" }}>
+              <Link
+                href="/auth/signin"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex-1 text-center py-2.5 rounded-xl border text-xs font-bold"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  borderColor: "var(--border-color)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/auth/signup"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex-1 text-center py-2.5 rounded-xl text-xs font-bold text-white shadow-md"
+                style={{ backgroundColor: "var(--accent)" }}
+              >
+                Sign Up Free
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

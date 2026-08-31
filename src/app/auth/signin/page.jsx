@@ -179,6 +179,12 @@ function SignInFormContent() {
               <label className="text-xs font-semibold uppercase tracking-wider text-gray-300">
                 Password <span className="text-red-400">*</span>
               </label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-[11px] font-semibold text-[#8277ff] hover:text-[#a198ff] transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
             <div className="relative flex items-center">
               <Lock className="absolute left-3.5 w-4 h-4 text-gray-500" />
